@@ -10,14 +10,14 @@
 <body>
     <div class="mobile-container">
         <h1>🚍 จองคิวใช้งานรถสองแถว เทศบาลนครขอนแก่น</h1>
-        <div id="status" class="status-badge">📍 กรุณาปักหมุดหรือค้นหา "จุดรับ"</div>
+        <div id="status" class="status-badge">📍 กรุณาปักหมุดหรือค้นหา</div>
         
         <div class="card" style="margin-bottom: 15px; padding: 15px;">
             <div class="form-group" style="margin-bottom: 10px;">
                 <label>📍 จุดรับ</label>
                 <div style="display: flex; gap: 10px;">
                     <input type="text" id="pickupSearch" placeholder="พิมพ์ค้นหา หรือจิ้มบนแผนที่...">
-                    <button type="button" onclick="searchLocation('pickup')" style="width: 80px; padding: 10px; font-size: 15px;">ค้นหา</button>
+                    <button type="button" onclick="searchLocation('pickup')" style="width: 80px; padding: 10px; font-size: 15px; background-color: #27ae60;">ค้นหา</button>
                 </div>
             </div>
             <div class="form-group" style="margin-bottom: 0;">
@@ -26,9 +26,6 @@
                     <input type="text" id="destSearch" placeholder="พิมพ์ค้นหา หรือจิ้มบนแผนที่...">
                     <button type="button" onclick="searchLocation('dest')" style="width: 80px; padding: 10px; font-size: 15px; background-color: #e74c3c;">ค้นหา</button>
                 </div>
-            </div>
-            <div style="font-size: 13px; color: #7f8c8d; text-align: center; margin-top: 10px;">
-                * สามารถใช้นิ้วแตะเพื่อปักหมุดบนแผนที่ได้โดยตรง
             </div>
         </div>
 
@@ -43,6 +40,7 @@
                 <label>เบอร์โทรศัพท์</label>
                 <input type="tel" id="userPhone" placeholder="08x-xxxxxxx">
             </div>
+            
             <div style="display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 15px;">
                 <div class="form-group" style="flex: 1; min-width: 140px; margin-bottom: 0;">
                     <label>วันเดินทาง</label>
@@ -52,10 +50,15 @@
                     <label>เวลารับ</label>
                     <input type="time" id="travelTime">
                 </div>
+                <div class="form-group" style="flex: 1; min-width: 140px; margin-bottom: 0;">
+                    <label>จำนวนผู้โดยสาร</label>
+                    <input type="number" id="passengerCount" min="1" placeholder="ระบุจำนวนคน">
+                </div>
             </div>
+
             <div class="form-group" style="margin-bottom: 20px;">
-                <label>รายละเอียดเพิ่มเติม(ถ้ามี)</label>
-                <textarea id="bookingDetails" placeholder="เช่น จำนวนผู้โดยสาร, มีสัมภาระขนาดใหญ่, หรือจุดสังเกตเพิ่มเติม..."></textarea>
+                <label>รายละเอียดเพิ่มเติม (ถ้ามี)</label>
+                <textarea id="bookingDetails" placeholder="เช่น มีสัมภาระขนาดใหญ่, หรือจุดสังเกตเพิ่มเติม..."></textarea>
             </div>
             <button id="btnSubmit">ยืนยันการจอง</button>
         </div>
@@ -80,6 +83,7 @@
         const app = initializeApp(firebaseConfig);
         const db = getFirestore(app);
 
+        // กำหนดวันที่ขั้นต่ำเป็นวันพรุ่งนี้
         const dateInput = document.getElementById('travelDate');
         const tomorrow = new Date();
         tomorrow.setDate(tomorrow.getDate() + 1);
@@ -102,10 +106,10 @@
                 statusBadge.innerText = '✅ ระบุจุดรับ-ส่งครบแล้ว กรุณากรอกข้อมูล';
                 statusBadge.style.background = '#27ae60';
             } else if (pickup && !destination) {
-                statusBadge.innerText = '📍 กรุณาปักหมุดหรือค้นหา "จุดหมายปลายทาง" ต่อ';
+                statusBadge.innerText = '📍 กรุณาปักหมุดหรือค้นหา "จุดส่ง" ต่อ';
                 statusBadge.style.background = '#e67e22';
             } else {
-                statusBadge.innerText = '📍 กรุณาปักหมุดหรือค้นหา "จุดรับ"';
+                statusBadge.innerText = '📍 กรุณาปักหมุดหรือค้นหา';
                 statusBadge.style.background = 'var(--secondary)';
             }
         }
@@ -118,7 +122,7 @@
             } else {
                 if (destMarker) map.removeLayer(destMarker);
                 destination = latlng;
-                destMarker = L.marker(destination, {icon: redIcon}).addTo(map).bindPopup("จุดหมาย").openPopup();
+                destMarker = L.marker(destination, {icon: redIcon}).addTo(map).bindPopup("จุดส่ง").openPopup();
             }
             updateStatus();
         }
@@ -131,27 +135,21 @@
             try {
                 const response = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${e.latlng.lat}&lon=${e.latlng.lng}&zoom=18&addressdetails=1`);
                 const data = await response.json();
-                
                 let placeName = data.name || (data.address ? (data.address.road || data.address.suburb || data.address.village) : null);
-                if (!placeName) {
-                    placeName = data.display_name.split(',').slice(0, 2).join(', ');
-                }
+                if (!placeName) placeName = data.display_name.split(',').slice(0, 2).join(', ');
 
                 if (isPickup) {
                     document.getElementById('pickupSearch').value = placeName || "พิกัดจุดรับ";
                 } else {
-                    document.getElementById('destSearch').value = placeName || "พิกัดจุดหมาย";
+                    document.getElementById('destSearch').value = placeName || "พิกัดจุดส่ง";
                 }
-            } catch (err) {
-                console.log("ไม่สามารถดึงชื่อสถานที่ได้");
-            }
+            } catch (err) { console.log("ไม่สามารถดึงชื่อสถานที่ได้"); }
         });
 
         window.searchLocation = async function(type) {
             const inputId = type === 'pickup' ? 'pickupSearch' : 'destSearch';
             const query = document.getElementById(inputId).value;
             if (!query) { alert("กรุณาพิมพ์ชื่อสถานที่ก่อนกดค้นหา"); return; }
-
             try {
                 const response = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query + ' ขอนแก่น')}`);
                 const data = await response.json();
@@ -161,9 +159,9 @@
                     placeMarker(latlng, type);
                     document.getElementById(inputId).value = data[0].name || query; 
                 } else {
-                    alert('ไม่พบสถานที่นี้ กรุณาลองพิมพ์ชื่อให้ชัดเจนขึ้น หรือใช้นิ้วแตะปักหมุดบนแผนที่ได้เลยครับ');
+                    alert('ไม่พบสถานที่นี้ กรุณาลองใหม่');
                 }
-            } catch (err) { alert('เกิดข้อผิดพลาดในการเชื่อมต่อระบบค้นหา'); }
+            } catch (err) { alert('เกิดข้อผิดพลาดในการเชื่อมต่อ'); }
         };
 
         document.getElementById('btnSubmit').onclick = async () => {
@@ -171,13 +169,14 @@
             const phone = document.getElementById('userPhone').value;
             const date = document.getElementById('travelDate').value;
             const time = document.getElementById('travelTime').value;
-            const details = document.getElementById('bookingDetails').value; // ดึงข้อมูลรายละเอียด
+            const passengers = document.getElementById('passengerCount').value; // จำนวนผู้โดยสาร
+            const details = document.getElementById('bookingDetails').value;
             
             const pickupName = document.getElementById('pickupSearch').value || "จุดรับ (ไม่ระบุชื่อ)";
-            const destName = document.getElementById('destSearch').value || "จุดหมาย (ไม่ระบุชื่อ)";
+            const destName = document.getElementById('destSearch').value || "จุดส่ง (ไม่ระบุชื่อ)";
 
-            if (!pickup || !destination || !name || !phone || !date || !time) {
-                alert("กรุณากรอกข้อมูล วันเดินทาง เวลารับ และระบุจุดรับ-ส่งให้ครบถ้วน");
+            if (!pickup || !destination || !name || !phone || !date || !time || !passengers) {
+                alert("กรุณากรอกข้อมูลให้ครบทุกช่อง (รวมถึงจำนวนผู้โดยสาร)");
                 return;
             }
 
@@ -191,12 +190,13 @@
                     phone: phone,
                     date: date,
                     time: time,
-                    details: details || "-", // บันทึกรายละเอียด (ถ้าไม่ได้กรอกให้ใส่ -)
+                    passengers: passengers, // บันทึกจำนวนคน
+                    details: details || "-",
                     pickup: { lat: pickup.lat, lng: pickup.lng, name: pickupName },
                     destination: { lat: destination.lat, lng: destination.lng, name: destName },
                     timestamp: new Date()
                 });
-                alert("จองคิวสำเร็จ! ระบบบันทึกข้อมูลเรียบร้อยแล้ว");
+                alert("จองคิวสำเร็จ!");
                 location.reload(); 
             } catch (e) { 
                 alert("เกิดข้อผิดพลาด: " + e.message); 
