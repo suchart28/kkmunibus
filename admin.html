@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin - ระบบจองรถ</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <link rel="stylesheet" href="https://unpkg.com/leaflet-routing-machine@latest/dist/leaflet-routing-machine.css" />
+</head>
+<body>
+    <div class="container">
+        <h1>🛠 รายการจองคิวรถสองแถว</h1>
+        <div id="map" style="height: 300px; margin-bottom: 20px;"></div>
+        <div id="bookingList" class="card">กำลังโหลดข้อมูล...</div>
+    </div>
+
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://unpkg.com/leaflet-routing-machine@latest/dist/leaflet-routing-machine.js"></script>
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+        import { getFirestore, collection, onSnapshot, query, orderBy } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+
+        // ใส่ Config ของคุณที่นี่
+        const firebaseConfig = {
+            apiKey: "AIzaSyDMMwciq6QoLSaWK6xfdr0U3ynyahtoaSk",
+            authDomain: "studio-a33fe.firebaseapp.com",
+            databaseURL: "https://studio-a33fe-default-rtdb.asia-southeast1.firebasedatabase.app",
+            projectId: "studio-a33fe",
+            storageBucket: "studio-a33fe.firebasestorage.app",
+            messagingSenderId: "753539109404",
+            appId: "1:753539109404:web:935800b0d97af25de645d9",
+            measurementId: "G-HG6VSPKCVK"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+        
+        const map = L.map('map').setView([16.4322, 102.8236], 12);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '© OpenStreetMap'
+        }).addTo(map);
+        
+        let routingControl = null;
+
+        // ดึงข้อมูลจาก Firestore แบบ Realtime เรียงตามวันที่
+        const q = query(collection(db, "bookings"), orderBy("date", "asc"));
+        
+        onSnapshot(q, (snapshot) => {
+            const listDiv = document.getElementById('bookingList');
+            listDiv.innerHTML = '';
+            
+            if (snapshot.empty) {
+                listDiv.innerHTML = '<p style="text-align:center;">ยังไม่มีรายการจอง</p>';
+                return;
+            }
+
+            snapshot.forEach((doc) => {
+                const data = doc.data();
+                const item = document.createElement('div');
+                item.className = 'booking-item';
+                item.innerHTML = `
+                    <div style="margin-bottom: 5px;"><strong>วันที่เดินทาง: <span style="color:#f39c12;">${data.date}</span></strong></div>
+                    <div><strong>ชื่อ:</strong> ${data.name}</div>
+                    <div><strong>โทร:</strong> ${data.phone}</div>
+                    <button onclick="window.drawRoute(${data.pickup.lat}, ${data.pickup.lng}, ${data.destination.lat}, ${data.destination.lng})" style="padding: 10px; font-size: 16px; margin-top: 10px; background-color: #3498db;">📍 ดูเส้นทางและคำนวณระยะทาง</button>
+                `;
+                listDiv.appendChild(item);
+            });
+        }, (error) => {
+            console.error("Error fetching data: ", error);
+            document.getElementById('bookingList').innerHTML = '<p style="color:red;">ไม่สามารถเชื่อมต่อฐานข้อมูลได้ (โปรดตรวจสอบ Firebase Rules)</p>';
+        });
+
+        // ฟังก์ชันวาดเส้นทางบนแผนที่
+        window.drawRoute = (plat, plng, dlat, dlng) => {
+            if (routingControl) map.removeControl(routingControl);
+            
+            routingControl = L.Routing.control({
+                waypoints: [
+                    L.latLng(plat, plng), // จุดรับ
+                    L.latLng(dlat, dlng)  // จุดหมาย
+                ],
+                router: L.Routing.osrmv1({
+                    serviceUrl: 'https://router.project-osrm.org/route/v1'
+                }),
+                lineOptions: {
+                    styles: [{ color: '#f39c12', opacity: 0.8, weight: 6 }]
+                },
+                addWaypoints: false,
+                routeWhileDragging: false,
+                fitSelectedRoutes: true,
+                showAlternatives: false
+            }).addTo(map);
+            
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        };
+    </script>
+</body>
+</html>

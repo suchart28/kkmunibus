@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>จองรถสองแถวขอนแก่น</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+</head>
+<body>
+    <div class="container">
+        <h1>🚍 จองรถสองแถวขอนแก่น</h1>
+        <div id="status" class="status-badge">📍 กรุณาปักหมุด "จุดรับ" บนแผนที่</div>
+        <div id="map"></div>
+
+        <div class="card">
+            <div class="form-group">
+                <label>ชื่อผู้จอง</label>
+                <input type="text" id="userName" placeholder="เช่น นายขอนแก่น ใจดี">
+            </div>
+            <div class="form-group">
+                <label>เบอร์โทรศัพท์</label>
+                <input type="tel" id="userPhone" placeholder="08x-xxxxxxx">
+            </div>
+            <div class="form-group">
+                <label>วันที่เดินทาง (ต้องล่วงหน้า 1 วัน)</label>
+                <input type="date" id="travelDate">
+            </div>
+            <button id="btnSubmit">ยืนยันการจอง</button>
+        </div>
+    </div>
+
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+        import { getFirestore, collection, addDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+
+        // ใส่ Config ของคุณที่นี่
+        const firebaseConfig = {
+            apiKey: "AIzaSyDMMwciq6QoLSaWK6xfdr0U3ynyahtoaSk",
+            authDomain: "studio-a33fe.firebaseapp.com",
+            databaseURL: "https://studio-a33fe-default-rtdb.asia-southeast1.firebasedatabase.app",
+            projectId: "studio-a33fe",
+            storageBucket: "studio-a33fe.firebasestorage.app",
+            messagingSenderId: "753539109404",
+            appId: "1:753539109404:web:935800b0d97af25de645d9",
+            measurementId: "G-HG6VSPKCVK"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+
+        // ตั้งค่าวันที่ขั้นต่ำ (ล่วงหน้า 1 วัน)
+        const dateInput = document.getElementById('travelDate');
+        const tomorrow = new Date();
+        tomorrow.setDate(tomorrow.getDate() + 1);
+        dateInput.min = tomorrow.toISOString().split('T')[0];
+
+        // แผนที่
+        const map = L.map('map').setView([16.4322, 102.8236], 13);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '© OpenStreetMap'
+        }).addTo(map);
+
+        let pickup = null, destination = null;
+        let markers = [];
+
+        map.on('click', (e) => {
+            if (!pickup) {
+                pickup = e.latlng;
+                markers.push(L.marker(pickup).addTo(map).bindPopup("จุดรับ").openPopup());
+                document.getElementById('status').innerText = '📍 ปักหมุด "จุดหมายปลายทาง" ต่อ';
+            } else if (!destination) {
+                destination = e.latlng;
+                const redIcon = L.icon({
+                    iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-red.png', 
+                    iconSize: [25, 41], iconAnchor: [12, 41]
+                });
+                markers.push(L.marker(destination, {icon: redIcon}).addTo(map).bindPopup("จุดหมาย").openPopup());
+                document.getElementById('status').innerText = '✅ ปักหมุดครบแล้ว กรุณากรอกข้อมูล';
+                document.getElementById('status').style.background = '#27ae60';
+            }
+        });
+
+        document.getElementById('btnSubmit').onclick = async () => {
+            const name = document.getElementById('userName').value;
+            const phone = document.getElementById('userPhone').value;
+            const date = document.getElementById('travelDate').value;
+
+            if (!pickup || !destination || !name || !phone || !date) {
+                alert("กรุณากรอกข้อมูลและปักหมุดให้ครบถ้วน");
+                return;
+            }
+
+            try {
+                // บันทึกข้อมูลลง Firestore
+                await addDoc(collection(db, "bookings"), {
+                    name: name,
+                    phone: phone,
+                    date: date,
+                    pickup: { lat: pickup.lat, lng: pickup.lng },
+                    destination: { lat: destination.lat, lng: destination.lng },
+                    timestamp: new Date()
+                });
+                alert("จองคิวสำเร็จ! ระบบบันทึกข้อมูลเรียบร้อยแล้ว");
+                location.reload(); // รีเฟรชหน้าเพื่อเริ่มใหม่
+            } catch (e) { 
+                alert("เกิดข้อผิดพลาด: " + e.message); 
+                console.error(e);
+            }
+        };
+    </script>
+</body>
+</html>
