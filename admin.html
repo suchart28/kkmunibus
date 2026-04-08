@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Admin - ระบบจองรถ</title>
+    <title>Admin - แผงควบคุมรถสองแถว</title>
     <link rel="stylesheet" href="style.css">
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <link rel="stylesheet" href="https://unpkg.com/leaflet-routing-machine@latest/dist/leaflet-routing-machine.css" />
@@ -27,7 +27,8 @@
     <script src="https://unpkg.com/leaflet-routing-machine@latest/dist/leaflet-routing-machine.js"></script>
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-        import { getFirestore, collection, onSnapshot, query, orderBy } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+        // เพิ่ม doc และ deleteDoc สำหรับฟังก์ชันลบข้อมูล
+        import { getFirestore, collection, onSnapshot, query, orderBy, doc, deleteDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
         const firebaseConfig = {
             apiKey: "AIzaSyDMMwciq6QoLSaWK6xfdr0U3ynyahtoaSk",
@@ -50,6 +51,7 @@
 
         const q = query(collection(db, "bookings"), orderBy("date", "asc"));
         
+        // โหลดข้อมูลแบบ Real-time
         onSnapshot(q, (snapshot) => {
             const listDiv = document.getElementById('bookingList');
             listDiv.innerHTML = '';
@@ -59,22 +61,27 @@
                 return;
             }
 
-            snapshot.forEach((doc) => {
-                const data = doc.data();
+            snapshot.forEach((firestoreDoc) => {
+                const data = firestoreDoc.data();
+                const docId = firestoreDoc.id; // เก็บ ID ของเอกสารเพื่อใช้ลบ
                 const item = document.createElement('div');
                 item.className = 'booking-item';
                 
-                // ตรวจสอบว่ามีข้อมูลเวลาหรือไม่ (เผื่อข้อมูลเก่าที่จองไปแล้วก่อนอัปเดต)
                 const timeText = data.time ? data.time : "ไม่ระบุ";
 
-                // เพิ่มเวลาต่อท้ายวันที่
                 item.innerHTML = `
-                    <div style="margin-bottom: 5px; font-size: 16px;">
-                        📅 <strong style="color:var(--primary);">${data.date}</strong> | ⏰ เวลา: <strong style="color:#e74c3c;">${timeText} น.</strong>
+                    <div style="margin-bottom: 8px; font-size: 16px; border-bottom: 1px dashed #ddd; padding-bottom: 5px;">
+                        📅 <strong>${data.date}</strong> | ⏰ เวลา: <strong style="color:#e74c3c;">${timeText} น.</strong>
                     </div>
-                    <div>👤 <strong>ชื่อ:</strong> ${data.name}</div>
-                    <div>📞 <strong>โทร:</strong> ${data.phone}</div>
-                    <button onclick="window.drawRoute(${data.pickup.lat}, ${data.pickup.lng}, ${data.destination.lat}, ${data.destination.lng})" style="padding: 10px; font-size: 16px; margin-top: 10px; background-color: #3498db;">📍 ดูเส้นทางบนแผนที่</button>
+                    <div style="margin-bottom: 5px;">👤 <strong>ชื่อ:</strong> ${data.name}</div>
+                    <div style="margin-bottom: 5px;">📞 <strong>โทร:</strong> ${data.phone}</div>
+                    <div style="font-size: 14px; color: #555; margin-bottom: 3px;">📍 <strong>พิกัดจุดรับ:</strong> ${data.pickup.lat.toFixed(4)}, ${data.pickup.lng.toFixed(4)}</div>
+                    <div style="font-size: 14px; color: #555; margin-bottom: 10px;">🏁 <strong>พิกัดจุดส่ง:</strong> ${data.destination.lat.toFixed(4)}, ${data.destination.lng.toFixed(4)}</div>
+                    
+                    <div style="display: flex; gap: 10px;">
+                        <button onclick="window.drawRoute(${data.pickup.lat}, ${data.pickup.lng}, ${data.destination.lat}, ${data.destination.lng})" style="flex: 2; padding: 10px; font-size: 14px; background-color: #3498db;">📍 ดูเส้นทาง</button>
+                        <button onclick="window.deleteBooking('${docId}')" style="flex: 1; padding: 10px; font-size: 14px; background-color: #e74c3c;">🗑️ ลบ</button>
+                    </div>
                 `;
                 listDiv.appendChild(item);
             });
@@ -82,6 +89,7 @@
             setTimeout(() => { map.invalidateSize(); }, 300);
         });
 
+        // ฟังก์ชันวาดเส้นทาง
         window.drawRoute = (plat, plng, dlat, dlng) => {
             if (routingControl) map.removeControl(routingControl);
             
@@ -96,8 +104,26 @@
                 containerClassName: 'routing-ui'
             }).addTo(map);
             
-            if (window.innerWidth < 768) {
+            if (window.innerWidth < 992) {
                 window.scrollTo({ top: 0, behavior: 'smooth' });
+            }
+        };
+
+        // ฟังก์ชันลบข้อมูล
+        window.deleteBooking = async (id) => {
+            // เด้งหน้าต่างยืนยันก่อนลบ
+            if (confirm("คุณแน่ใจหรือไม่ว่าต้องการ 'ลบ' รายการจองนี้?")) {
+                try {
+                    await deleteDoc(doc(db, "bookings", id));
+                    // ไม่ต้องเขียนโค้ดรีเฟรชหน้า เพราะ onSnapshot จะโหลดข้อมูลใหม่ให้อัตโนมัติเมื่อข้อมูลถูกลบ
+                    if (routingControl) {
+                        map.removeControl(routingControl); // เคลียร์เส้นทางบนแผนที่ออก
+                        routingControl = null;
+                    }
+                } catch (error) {
+                    alert("เกิดข้อผิดพลาดในการลบข้อมูล: " + error.message);
+                    console.error(error);
+                }
             }
         };
     </script>
