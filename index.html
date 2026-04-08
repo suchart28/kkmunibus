@@ -14,17 +14,17 @@
         
         <div class="card" style="margin-bottom: 15px; padding: 15px;">
             <div class="form-group" style="margin-bottom: 10px;">
-                <label style="font-size: 16px;">📍 จุดรับ</label>
+                <label>📍 จุดรับ</label>
                 <div style="display: flex; gap: 10px;">
-                    <input type="text" id="pickupSearch" placeholder="พิมพ์ค้นหา หรือจิ้มบนแผนที่..." style="padding: 10px; font-size: 16px;">
-                    <button type="button" onclick="searchLocation('pickup')" style="width: 80px; padding: 10px; font-size: 16px;">ค้นหา</button>
+                    <input type="text" id="pickupSearch" placeholder="พิมพ์ค้นหา หรือจิ้มบนแผนที่...">
+                    <button type="button" onclick="searchLocation('pickup')" style="width: 80px; padding: 10px; font-size: 15px;">ค้นหา</button>
                 </div>
             </div>
             <div class="form-group" style="margin-bottom: 0;">
-                <label style="font-size: 16px;">🏁 จุดหมาย</label>
+                <label>🏁 จุดหมาย</label>
                 <div style="display: flex; gap: 10px;">
-                    <input type="text" id="destSearch" placeholder="พิมพ์ค้นหา หรือจิ้มบนแผนที่..." style="padding: 10px; font-size: 16px;">
-                    <button type="button" onclick="searchLocation('dest')" style="width: 80px; padding: 10px; font-size: 16px; background-color: #e74c3c;">ค้นหา</button>
+                    <input type="text" id="destSearch" placeholder="พิมพ์ค้นหา หรือจิ้มบนแผนที่...">
+                    <button type="button" onclick="searchLocation('dest')" style="width: 80px; padding: 10px; font-size: 15px; background-color: #e74c3c;">ค้นหา</button>
                 </div>
             </div>
             <div style="font-size: 13px; color: #7f8c8d; text-align: center; margin-top: 10px;">
@@ -43,15 +43,19 @@
                 <label>เบอร์โทรศัพท์</label>
                 <input type="tel" id="userPhone" placeholder="08x-xxxxxxx">
             </div>
-            <div style="display: flex; gap: 10px; margin-bottom: 15px;">
-                <div class="form-group" style="flex: 1; margin-bottom: 0;">
+            <div style="display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 15px;">
+                <div class="form-group" style="flex: 1; min-width: 140px; margin-bottom: 0;">
                     <label>วันเดินทาง</label>
                     <input type="date" id="travelDate">
                 </div>
-                <div class="form-group" style="flex: 1; margin-bottom: 0;">
+                <div class="form-group" style="flex: 1; min-width: 140px; margin-bottom: 0;">
                     <label>เวลารับ</label>
                     <input type="time" id="travelTime">
                 </div>
+            </div>
+            <div class="form-group" style="margin-bottom: 20px;">
+                <label>รายละเอียดเพิ่มเติม (ถ้ามี)</label>
+                <textarea id="bookingDetails" placeholder="เช่น จำนวนผู้โดยสาร, มีสัมภาระขนาดใหญ่, หรือจุดสังเกตเพิ่มเติม..."></textarea>
             </div>
             <button id="btnSubmit">ยืนยันการจอง</button>
         </div>
@@ -167,12 +171,13 @@
             const phone = document.getElementById('userPhone').value;
             const date = document.getElementById('travelDate').value;
             const time = document.getElementById('travelTime').value;
+            const details = document.getElementById('bookingDetails').value; // ดึงข้อมูลรายละเอียด
             
             const pickupName = document.getElementById('pickupSearch').value || "จุดรับ (ไม่ระบุชื่อ)";
             const destName = document.getElementById('destSearch').value || "จุดหมาย (ไม่ระบุชื่อ)";
 
             if (!pickup || !destination || !name || !phone || !date || !time) {
-                alert("กรุณากรอกข้อมูล วันที่ เวลารับ และระบุจุดรับ-ส่งให้ครบถ้วน");
+                alert("กรุณากรอกข้อมูล วันเดินทาง เวลารับ และระบุจุดรับ-ส่งให้ครบถ้วน");
                 return;
             }
 
@@ -186,6 +191,7 @@
                     phone: phone,
                     date: date,
                     time: time,
+                    details: details || "-", // บันทึกรายละเอียด (ถ้าไม่ได้กรอกให้ใส่ -)
                     pickup: { lat: pickup.lat, lng: pickup.lng, name: pickupName },
                     destination: { lat: destination.lat, lng: destination.lng, name: destName },
                     timestamp: new Date()
