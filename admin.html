@@ -63,8 +63,15 @@
                 const data = doc.data();
                 const item = document.createElement('div');
                 item.className = 'booking-item';
+                
+                // ตรวจสอบว่ามีข้อมูลเวลาหรือไม่ (เผื่อข้อมูลเก่าที่จองไปแล้วก่อนอัปเดต)
+                const timeText = data.time ? data.time : "ไม่ระบุ";
+
+                // เพิ่มเวลาต่อท้ายวันที่
                 item.innerHTML = `
-                    <div style="margin-bottom: 5px; font-size: 16px;">📅 วันที่เดินทาง: <strong style="color:var(--primary);">${data.date}</strong></div>
+                    <div style="margin-bottom: 5px; font-size: 16px;">
+                        📅 <strong style="color:var(--primary);">${data.date}</strong> | ⏰ เวลา: <strong style="color:#e74c3c;">${timeText} น.</strong>
+                    </div>
                     <div>👤 <strong>ชื่อ:</strong> ${data.name}</div>
                     <div>📞 <strong>โทร:</strong> ${data.phone}</div>
                     <button onclick="window.drawRoute(${data.pickup.lat}, ${data.pickup.lng}, ${data.destination.lat}, ${data.destination.lng})" style="padding: 10px; font-size: 16px; margin-top: 10px; background-color: #3498db;">📍 ดูเส้นทางบนแผนที่</button>
@@ -72,7 +79,6 @@
                 listDiv.appendChild(item);
             });
             
-            // ทำให้แผนที่คำนวณใหม่เมื่อขนาดหน้าต่างเปลี่ยน (จำเป็นสำหรับ Grid/Flexbox)
             setTimeout(() => { map.invalidateSize(); }, 300);
         });
 
@@ -87,10 +93,9 @@
                 routeWhileDragging: false,
                 fitSelectedRoutes: true,
                 showAlternatives: false,
-                containerClassName: 'routing-ui' // ป้องกันกล่องคำแนะนำเส้นทางล้น
+                containerClassName: 'routing-ui'
             }).addTo(map);
             
-            // เลื่อนจอขึ้นบนสุดเมื่อกดดูเส้นทางบนหน้าจอมือถือ
             if (window.innerWidth < 768) {
                 window.scrollTo({ top: 0, behavior: 'smooth' });
             }
