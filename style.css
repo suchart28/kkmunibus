@@ -17,10 +17,11 @@ body { margin: 0; background: var(--bg); color: var(--secondary); font-size: 18p
     margin: 0 auto; 
 }
 
-/* สำหรับหน้า Admin (ยืดหยุ่นตามหน้าจอ) */
+/* สำหรับหน้า Admin (เต็มหน้าจอ Full HD) */
 .admin-container {
     padding: 20px;
-    max-width: 1400px; /* ขยายขนาดสำหรับจอคอม */
+    width: 100%;
+    max-width: 1920px; /* รองรับจอ Full HD 1080p */
     margin: 0 auto;
 }
 
@@ -69,31 +70,53 @@ button:active { transform: scale(0.98); background: #d68910; }
 }
 .booking-item:last-child { border: none; }
 
-/* --- Layout สำหรับ Admin บน Desktop --- */
+/* --- Layout สำหรับ Admin บน Desktop (Full HD) --- */
 .admin-layout {
     display: flex;
     flex-direction: column; /* ค่าเริ่มต้นเป็นแนวตั้ง (สำหรับจอมือถือ) */
     gap: 20px;
 }
 
-.map-section { flex: 2; }
-.list-section { flex: 1; }
-
-/* เมื่อหน้าจอใหญ่กว่า 768px (Tablet/Desktop) */
-@media (min-width: 768px) {
-    h1 { font-size: 32px; text-align: left; }
+/* เมื่อหน้าจอใหญ่กว่า 992px (Desktop / Full HD) */
+@media (min-width: 992px) {
+    h1 { font-size: 32px; text-align: left; margin-bottom: 20px; }
     
     .admin-layout {
         flex-direction: row; /* เปลี่ยนเป็นแนวนอน ซ้าย-ขวา */
         align-items: flex-start;
     }
     
-    /* ให้แผนที่สูงขึ้นบนหน้าจอคอม */
-    .admin-container #map { height: 70vh; position: sticky; top: 20px; }
+    /* ปรับสัดส่วนพื้นที่: แผนที่กว้าง 75% / รายการจองกว้าง 25% */
+    .map-section { flex: 3; } 
+    .list-section { flex: 1; min-width: 400px; } 
     
-    /* ให้รายการจองมี Scrollbar ในตัวเอง */
+    /* ให้แผนที่สูงเกือบเต็มจอ (หักระยะขอบบน-ล่างออกเล็กน้อย) */
+    .admin-container #map { 
+        height: calc(100vh - 120px); 
+        position: sticky; 
+        top: 20px; 
+    }
+    
+    /* ให้รายการจองมีความสูงเท่าแผนที่ และมี Scrollbar ภายในกล่อง */
     .list-section .card {
-        max-height: 70vh;
+        max-height: calc(100vh - 120px);
         overflow-y: auto;
+        margin-bottom: 0;
+    }
+    
+    /* ตกแต่ง Scrollbar ให้ดูสวยงามขึ้น */
+    .list-section .card::-webkit-scrollbar {
+        width: 8px;
+    }
+    .list-section .card::-webkit-scrollbar-track {
+        background: #f1f1f1; 
+        border-radius: 10px;
+    }
+    .list-section .card::-webkit-scrollbar-thumb {
+        background: #bdc3c7; 
+        border-radius: 10px;
+    }
+    .list-section .card::-webkit-scrollbar-thumb:hover {
+        background: #95a5a6; 
     }
 }
