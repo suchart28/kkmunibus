@@ -8,24 +8,25 @@
 
 * { box-sizing: border-box; font-family: 'Chakra Petch', sans-serif; }
 
-body { margin: 0; background: var(--bg); color: var(--secondary); font-size: 18px; }
+body { margin: 0; background: var(--bg); color: var(--secondary); font-size: 16px; }
 
-/* สำหรับหน้า User (มือถือแนวตั้ง) */
+/* 📱 สำหรับหน้า User (มือถือ และหน้าจอทั่วไป) */
 .mobile-container { 
-    padding: 15px; 
-    max-width: 500px; /* บังคับขนาดสูงสุดให้อยู่ในสัดส่วนมือถือ */
-    margin: 0 auto; 
-}
-
-/* สำหรับหน้า Admin (เต็มหน้าจอ Full HD) */
-.admin-container {
-    padding: 20px;
     width: 100%;
-    max-width: 1920px; /* รองรับจอ Full HD 1080p */
-    margin: 0 auto;
+    max-width: 600px; /* ขยายขนาดเล็กน้อยให้พอดีกับ Tablet แนวตั้ง */
+    margin: 0 auto; 
+    padding: 15px; 
 }
 
-h1 { text-align: center; font-size: 24px; color: var(--secondary); margin-bottom: 15px; }
+/* 💻 สำหรับหน้า Admin */
+.admin-container {
+    width: 100%;
+    max-width: 1920px;
+    margin: 0 auto;
+    padding: 15px;
+}
+
+h1 { text-align: center; font-size: 22px; color: var(--secondary); margin-bottom: 15px; }
 
 /* แผนที่เริ่มต้น */
 #map { 
@@ -45,16 +46,20 @@ h1 { text-align: center; font-size: 24px; color: var(--secondary); margin-bottom
 }
 
 .form-group { margin-bottom: 15px; }
-label { display: block; font-weight: 600; margin-bottom: 8px; }
-input {
-    width: 100%; padding: 15px; border-radius: 10px;
-    border: 1px solid #ddd; font-size: 18px; outline: none;
+label { display: block; font-weight: 600; margin-bottom: 8px; font-size: 15px;}
+
+/* รองรับทั้ง Input และ Textarea */
+input, textarea {
+    width: 100%; padding: 12px; border-radius: 10px;
+    border: 1px solid #ddd; font-size: 16px; outline: none;
+    font-family: 'Chakra Petch', sans-serif;
 }
-input:focus { border-color: var(--primary); }
+textarea { resize: vertical; min-height: 80px; }
+input:focus, textarea:focus { border-color: var(--primary); }
 
 button {
-    width: 100%; padding: 18px; border: none; border-radius: 10px;
-    background: var(--primary); color: #fff; font-size: 20px;
+    width: 100%; padding: 15px; border: none; border-radius: 10px;
+    background: var(--primary); color: #fff; font-size: 18px;
     font-weight: 700; cursor: pointer; transition: 0.3s;
 }
 
@@ -63,60 +68,53 @@ button:active { transform: scale(0.98); background: #d68910; }
 .status-badge {
     background: var(--secondary); color: #fff; padding: 12px;
     border-radius: 8px; text-align: center; margin-bottom: 15px; font-weight: bold;
+    font-size: 15px;
 }
 
 .booking-item {
     border-bottom: 1px solid #eee; padding: 15px 0;
 }
-.booking-item:last-child { border: none; }
+.booking-item:last-child { border: none; padding-bottom: 0; }
 
-/* --- Layout สำหรับ Admin บน Desktop (Full HD) --- */
+/* --- Responsive Layout สำหรับ Admin --- */
+/* ค่าเริ่มต้นเป็นหน้าจอมือถือ (เรียงซ้อนกันแนวตั้ง) */
 .admin-layout {
     display: flex;
-    flex-direction: column; /* ค่าเริ่มต้นเป็นแนวตั้ง (สำหรับจอมือถือ) */
-    gap: 20px;
+    flex-direction: column; 
+    gap: 15px;
+}
+.map-section { width: 100%; }
+.list-section { width: 100%; }
+.admin-container #map { height: 400px; } /* ความสูงแผนที่บนมือถือ (Admin) */
+
+/* 📱 สำหรับ Tablet (หน้าจอ 768px ขึ้นไป) */
+@media (min-width: 768px) {
+    body { font-size: 18px; }
+    h1 { font-size: 26px; }
+    .mobile-container { padding: 30px; }
+    .admin-container { padding: 20px; }
+    
+    .admin-layout { flex-direction: row; align-items: flex-start; }
+    .map-section { flex: 1.5; } 
+    .list-section { flex: 1; }
+    .admin-container #map { height: 60vh; position: sticky; top: 20px; }
+    
+    .list-section .card { max-height: 60vh; overflow-y: auto; margin-bottom: 0; }
 }
 
-/* เมื่อหน้าจอใหญ่กว่า 992px (Desktop / Full HD) */
-@media (min-width: 992px) {
-    h1 { font-size: 32px; text-align: left; margin-bottom: 20px; }
+/* 💻 สำหรับ Desktop / Full HD (หน้าจอ 1024px ขึ้นไป) */
+@media (min-width: 1024px) {
+    h1 { font-size: 30px; text-align: left; margin-bottom: 20px; }
     
-    .admin-layout {
-        flex-direction: row; /* เปลี่ยนเป็นแนวนอน ซ้าย-ขวา */
-        align-items: flex-start;
-    }
-    
-    /* ปรับสัดส่วนพื้นที่: แผนที่กว้าง 75% / รายการจองกว้าง 25% */
     .map-section { flex: 3; } 
-    .list-section { flex: 1; min-width: 400px; } 
+    .list-section { flex: 1; min-width: 380px; } 
     
-    /* ให้แผนที่สูงเกือบเต็มจอ (หักระยะขอบบน-ล่างออกเล็กน้อย) */
-    .admin-container #map { 
-        height: calc(100vh - 120px); 
-        position: sticky; 
-        top: 20px; 
-    }
+    .admin-container #map { height: calc(100vh - 100px); }
+    .list-section .card { max-height: calc(100vh - 100px); }
     
-    /* ให้รายการจองมีความสูงเท่าแผนที่ และมี Scrollbar ภายในกล่อง */
-    .list-section .card {
-        max-height: calc(100vh - 120px);
-        overflow-y: auto;
-        margin-bottom: 0;
-    }
-    
-    /* ตกแต่ง Scrollbar ให้ดูสวยงามขึ้น */
-    .list-section .card::-webkit-scrollbar {
-        width: 8px;
-    }
-    .list-section .card::-webkit-scrollbar-track {
-        background: #f1f1f1; 
-        border-radius: 10px;
-    }
-    .list-section .card::-webkit-scrollbar-thumb {
-        background: #bdc3c7; 
-        border-radius: 10px;
-    }
-    .list-section .card::-webkit-scrollbar-thumb:hover {
-        background: #95a5a6; 
-    }
+    /* Scrollbar สวยๆ สำหรับ Desktop */
+    .list-section .card::-webkit-scrollbar { width: 6px; }
+    .list-section .card::-webkit-scrollbar-track { background: #f1f1f1; border-radius: 10px; }
+    .list-section .card::-webkit-scrollbar-thumb { background: #bdc3c7; border-radius: 10px; }
+    .list-section .card::-webkit-scrollbar-thumb:hover { background: #95a5a6; }
 }
