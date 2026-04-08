@@ -27,7 +27,6 @@
     <script src="https://unpkg.com/leaflet-routing-machine@latest/dist/leaflet-routing-machine.js"></script>
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-        // เพิ่ม doc และ deleteDoc สำหรับฟังก์ชันลบข้อมูล
         import { getFirestore, collection, onSnapshot, query, orderBy, doc, deleteDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
         const firebaseConfig = {
@@ -51,7 +50,6 @@
 
         const q = query(collection(db, "bookings"), orderBy("date", "asc"));
         
-        // โหลดข้อมูลแบบ Real-time
         onSnapshot(q, (snapshot) => {
             const listDiv = document.getElementById('bookingList');
             listDiv.innerHTML = '';
@@ -63,11 +61,15 @@
 
             snapshot.forEach((firestoreDoc) => {
                 const data = firestoreDoc.data();
-                const docId = firestoreDoc.id; // เก็บ ID ของเอกสารเพื่อใช้ลบ
+                const docId = firestoreDoc.id; 
                 const item = document.createElement('div');
                 item.className = 'booking-item';
                 
                 const timeText = data.time ? data.time : "ไม่ระบุ";
+                
+                // ดึงชื่อสถานที่ ถ้าไม่มี (ข้อมูลเก่า) ให้แสดงเป็นพิกัดแทน
+                const pickupName = data.pickup.name ? data.pickup.name : `พิกัด: ${data.pickup.lat.toFixed(4)}, ${data.pickup.lng.toFixed(4)}`;
+                const destName = data.destination.name ? data.destination.name : `พิกัด: ${data.destination.lat.toFixed(4)}, ${data.destination.lng.toFixed(4)}`;
 
                 item.innerHTML = `
                     <div style="margin-bottom: 8px; font-size: 16px; border-bottom: 1px dashed #ddd; padding-bottom: 5px;">
@@ -75,8 +77,8 @@
                     </div>
                     <div style="margin-bottom: 5px;">👤 <strong>ชื่อ:</strong> ${data.name}</div>
                     <div style="margin-bottom: 5px;">📞 <strong>โทร:</strong> ${data.phone}</div>
-                    <div style="font-size: 14px; color: #555; margin-bottom: 3px;">📍 <strong>พิกัดจุดรับ:</strong> ${data.pickup.lat.toFixed(4)}, ${data.pickup.lng.toFixed(4)}</div>
-                    <div style="font-size: 14px; color: #555; margin-bottom: 10px;">🏁 <strong>พิกัดจุดส่ง:</strong> ${data.destination.lat.toFixed(4)}, ${data.destination.lng.toFixed(4)}</div>
+                    <div style="font-size: 15px; color: #34495e; margin-bottom: 3px;">📍 <strong>จุดรับ:</strong> ${pickupName}</div>
+                    <div style="font-size: 15px; color: #34495e; margin-bottom: 10px;">🏁 <strong>จุดส่ง:</strong> ${destName}</div>
                     
                     <div style="display: flex; gap: 10px;">
                         <button onclick="window.drawRoute(${data.pickup.lat}, ${data.pickup.lng}, ${data.destination.lat}, ${data.destination.lng})" style="flex: 2; padding: 10px; font-size: 14px; background-color: #3498db;">📍 ดูเส้นทาง</button>
@@ -89,7 +91,6 @@
             setTimeout(() => { map.invalidateSize(); }, 300);
         });
 
-        // ฟังก์ชันวาดเส้นทาง
         window.drawRoute = (plat, plng, dlat, dlng) => {
             if (routingControl) map.removeControl(routingControl);
             
@@ -109,20 +110,16 @@
             }
         };
 
-        // ฟังก์ชันลบข้อมูล
         window.deleteBooking = async (id) => {
-            // เด้งหน้าต่างยืนยันก่อนลบ
             if (confirm("คุณแน่ใจหรือไม่ว่าต้องการ 'ลบ' รายการจองนี้?")) {
                 try {
                     await deleteDoc(doc(db, "bookings", id));
-                    // ไม่ต้องเขียนโค้ดรีเฟรชหน้า เพราะ onSnapshot จะโหลดข้อมูลใหม่ให้อัตโนมัติเมื่อข้อมูลถูกลบ
                     if (routingControl) {
-                        map.removeControl(routingControl); // เคลียร์เส้นทางบนแผนที่ออก
+                        map.removeControl(routingControl);
                         routingControl = null;
                     }
                 } catch (error) {
                     alert("เกิดข้อผิดพลาดในการลบข้อมูล: " + error.message);
-                    console.error(error);
                 }
             }
         };
