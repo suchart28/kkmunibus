@@ -1,41 +1,134 @@
-<script type="module">
-    // ... (ส่วนโค้ดเดิมด้านบนเหมือนเดิม) ...
-
-    onSnapshot(q, (snapshot) => {
-        const listDiv = document.getElementById('bookingList');
-        listDiv.innerHTML = '';
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin - แผงควบคุมรถสองแถว</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <link rel="stylesheet" href="https://unpkg.com/leaflet-routing-machine@latest/dist/leaflet-routing-machine.css" />
+</head>
+<body>
+    <div class="admin-container">
+        <h1>🛠 แผงควบคุมรถสองแถว (Admin Dashboard)</h1>
         
-        snapshot.forEach((firestoreDoc) => {
-            const data = firestoreDoc.data();
-            const docId = firestoreDoc.id; 
-            const item = document.createElement('div');
-            item.className = 'booking-item';
+        <div class="admin-layout">
+            <div class="map-section">
+                <div id="map"></div>
+            </div>
             
-            const timeText = data.time || "ไม่ระบุ";
-            const passengerText = data.passengers || "1"; // ดึงข้อมูลจำนวนคน
-            const detailsText = data.details && data.details !== "-" ? data.details : "ไม่มี";
-            
-            item.innerHTML = `
-                <div style="margin-bottom: 8px; font-size: 15px; border-bottom: 1px dashed #ddd; padding-bottom: 5px;">
-                    📅 <strong style="color:var(--primary);">${data.date}</strong> | ⏰ <strong style="color:#e74c3c;">${timeText} น.</strong>
-                </div>
-                <div style="margin-bottom: 3px; font-size: 15px;">👤 <strong>ชื่อ:</strong> ${data.name}</div>
-                <div style="margin-bottom: 3px; font-size: 15px;">📞 <strong>โทร:</strong> ${data.phone}</div>
-                <div style="margin-bottom: 5px; font-size: 15px;">👥 <strong>จำนวนผู้โดยสาร:</strong> <span style="color:#27ae60; font-weight:bold;">${passengerText} คน</span></div>
-                
-                <div style="background: #f8f9fa; padding: 8px; border-radius: 8px; margin-bottom: 8px; font-size: 14px;">
-                    📝 <strong>รายละเอียดเพิ่มเติม:</strong><br> <span style="color: #555;">${detailsText}</span>
-                </div>
+            <div class="list-section">
+                <div id="bookingList" class="card">กำลังโหลดข้อมูลการจอง...</div>
+            </div>
+        </div>
+    </div>
 
-                <div style="font-size: 14px; color: #34495e; margin-bottom: 3px;">📍 <strong>จุดรับ:</strong> ${data.pickup.name}</div>
-                <div style="font-size: 14px; color: #34495e; margin-bottom: 10px;">🏁 <strong>จุดส่ง:</strong> ${data.destination.name}</div>
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://unpkg.com/leaflet-routing-machine@latest/dist/leaflet-routing-machine.js"></script>
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+        import { getFirestore, collection, onSnapshot, query, orderBy, doc, deleteDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyDMMwciq6QoLSaWK6xfdr0U3ynyahtoaSk",
+            authDomain: "studio-a33fe.firebaseapp.com",
+            databaseURL: "https://studio-a33fe-default-rtdb.asia-southeast1.firebasedatabase.app",
+            projectId: "studio-a33fe",
+            storageBucket: "studio-a33fe.firebasestorage.app",
+            messagingSenderId: "753539109404",
+            appId: "1:753539109404:web:935800b0d97af25de645d9",
+            measurementId: "G-HG6VSPKCVK"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+        
+        const map = L.map('map').setView([16.4322, 102.8236], 13);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '© OpenStreetMap' }).addTo(map);
+        
+        let routingControl = null;
+
+        const q = query(collection(db, "bookings"), orderBy("date", "asc"));
+        
+        onSnapshot(q, (snapshot) => {
+            const listDiv = document.getElementById('bookingList');
+            listDiv.innerHTML = '';
+            
+            if (snapshot.empty) {
+                listDiv.innerHTML = '<p style="text-align:center; padding: 20px;">ไม่มีรายการจองในระบบ</p>';
+                return;
+            }
+
+            snapshot.forEach((firestoreDoc) => {
+                const data = firestoreDoc.data();
+                const docId = firestoreDoc.id; 
+                const item = document.createElement('div');
+                item.className = 'booking-item';
                 
-                <div style="display: flex; gap: 10px;">
-                    <button onclick="window.drawRoute(${data.pickup.lat}, ${data.pickup.lng}, ${data.destination.lat}, ${data.destination.lng})" style="flex: 2; padding: 10px; font-size: 14px; background-color: #3498db;">📍 ดูเส้นทาง</button>
-                    <button onclick="window.deleteBooking('${docId}')" style="flex: 1; padding: 10px; font-size: 14px; background-color: #e74c3c;">🗑️ ลบ</button>
-                </div>
-            `;
-            listDiv.appendChild(item);
+                const timeText = data.time ? data.time : "ไม่ระบุ";
+                const detailsText = data.details && data.details !== "-" ? data.details : "ไม่มี";
+                
+                const pickupName = data.pickup.name ? data.pickup.name : `พิกัด: ${data.pickup.lat.toFixed(4)}, ${data.pickup.lng.toFixed(4)}`;
+                const destName = data.destination.name ? data.destination.name : `พิกัด: ${data.destination.lat.toFixed(4)}, ${data.destination.lng.toFixed(4)}`;
+
+                // เพิ่มส่วนแสดงรายละเอียดเพิ่มเติม
+                item.innerHTML = `
+                    <div style="margin-bottom: 8px; font-size: 15px; border-bottom: 1px dashed #ddd; padding-bottom: 5px;">
+                        📅 <strong style="color:var(--primary);">${data.date}</strong> | ⏰ เวลา: <strong style="color:#e74c3c;">${timeText} น.</strong>
+                    </div>
+                    <div style="margin-bottom: 3px; font-size: 15px;">👤 <strong>ชื่อ:</strong> ${data.name}</div>
+                    <div style="margin-bottom: 5px; font-size: 15px;">📞 <strong>โทร:</strong> ${data.phone}</div>
+                    
+                    <div style="background: #f8f9fa; padding: 8px; border-radius: 8px; margin-bottom: 8px; font-size: 14px;">
+                        📝 <strong>รายละเอียดเพิ่มเติม:</strong><br> <span style="color: #555;">${detailsText}</span>
+                    </div>
+
+                    <div style="font-size: 14px; color: #34495e; margin-bottom: 3px;">📍 <strong>จุดรับ:</strong> ${pickupName}</div>
+                    <div style="font-size: 14px; color: #34495e; margin-bottom: 10px;">🏁 <strong>จุดส่ง:</strong> ${destName}</div>
+                    
+                    <div style="display: flex; gap: 10px;">
+                        <button onclick="window.drawRoute(${data.pickup.lat}, ${data.pickup.lng}, ${data.destination.lat}, ${data.destination.lng})" style="flex: 2; padding: 10px; font-size: 14px; background-color: #3498db;">📍 ดูเส้นทาง</button>
+                        <button onclick="window.deleteBooking('${docId}')" style="flex: 1; padding: 10px; font-size: 14px; background-color: #e74c3c;">🗑️ ลบ</button>
+                    </div>
+                `;
+                listDiv.appendChild(item);
+            });
+            
+            setTimeout(() => { map.invalidateSize(); }, 300);
         });
-    });
-</script>
+
+        window.drawRoute = (plat, plng, dlat, dlng) => {
+            if (routingControl) map.removeControl(routingControl);
+            
+            routingControl = L.Routing.control({
+                waypoints: [ L.latLng(plat, plng), L.latLng(dlat, dlng) ],
+                router: L.Routing.osrmv1({ serviceUrl: 'https://router.project-osrm.org/route/v1' }),
+                lineOptions: { styles: [{ color: '#f39c12', opacity: 0.8, weight: 6 }] },
+                addWaypoints: false,
+                routeWhileDragging: false,
+                fitSelectedRoutes: true,
+                showAlternatives: false,
+                containerClassName: 'routing-ui'
+            }).addTo(map);
+            
+            if (window.innerWidth < 1024) {
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+            }
+        };
+
+        window.deleteBooking = async (id) => {
+            if (confirm("คุณแน่ใจหรือไม่ว่าต้องการ 'ลบ' รายการจองนี้?")) {
+                try {
+                    await deleteDoc(doc(db, "bookings", id));
+                    if (routingControl) {
+                        map.removeControl(routingControl);
+                        routingControl = null;
+                    }
+                } catch (error) {
+                    alert("เกิดข้อผิดพลาดในการลบข้อมูล: " + error.message);
+                }
+            }
+        };
+    </script>
+</body>
+</html>
