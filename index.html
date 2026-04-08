@@ -10,18 +10,18 @@
 <body>
     <div class="mobile-container">
         <h1>🚍 จองคิวใช้งานรถสองแถว เทศบาลนครขอนแก่น</h1>
-        <div id="status" class="status-badge">📍 กรุณาปักหมุดหรือค้นหา "จุดรับ"</div>
+        <div id="status" class="status-badge">📍 กรุณาปักหมุดหรือค้นหา</div>
         
         <div class="card" style="margin-bottom: 15px; padding: 15px;">
             <div class="form-group" style="margin-bottom: 10px;">
                 <label>📍 จุดรับ</label>
                 <div style="display: flex; gap: 10px;">
                     <input type="text" id="pickupSearch" placeholder="พิมพ์ค้นหา หรือจิ้มบนแผนที่...">
-                    <button type="button" onclick="searchLocation('pickup')" style="width: 80px; padding: 10px; font-size: 15px;">ค้นหา</button>
+                    <button type="button" onclick="searchLocation('pickup')" style="width: 80px; padding: 10px; font-size: 15px; background-color: #27ae60;">ค้นหา</button>
                 </div>
             </div>
             <div class="form-group" style="margin-bottom: 0;">
-                <label>🏁 จุดหมาย</label>
+                <label>🏁 จุดส่ง</label>
                 <div style="display: flex; gap: 10px;">
                     <input type="text" id="destSearch" placeholder="พิมพ์ค้นหา หรือจิ้มบนแผนที่...">
                     <button type="button" onclick="searchLocation('dest')" style="width: 80px; padding: 10px; font-size: 15px; background-color: #e74c3c;">ค้นหา</button>
@@ -102,10 +102,12 @@
                 statusBadge.innerText = '✅ ระบุจุดรับ-ส่งครบแล้ว กรุณากรอกข้อมูล';
                 statusBadge.style.background = '#27ae60';
             } else if (pickup && !destination) {
-                statusBadge.innerText = '📍 กรุณาปักหมุดหรือค้นหา "จุดหมายปลายทาง" ต่อ';
+                // อัปเดตข้อความแจ้งเตือนจุดที่สองให้เป็น จุดส่ง
+                statusBadge.innerText = '📍 กรุณาปักหมุดหรือค้นหา "จุดส่ง" ต่อ';
                 statusBadge.style.background = '#e67e22';
             } else {
-                statusBadge.innerText = '📍 กรุณาปักหมุดหรือค้นหา "จุดรับ"';
+                // อัปเดตข้อความเริ่มต้น
+                statusBadge.innerText = '📍 กรุณาปักหมุดหรือค้นหา';
                 statusBadge.style.background = 'var(--secondary)';
             }
         }
@@ -118,7 +120,7 @@
             } else {
                 if (destMarker) map.removeLayer(destMarker);
                 destination = latlng;
-                destMarker = L.marker(destination, {icon: redIcon}).addTo(map).bindPopup("จุดหมาย").openPopup();
+                destMarker = L.marker(destination, {icon: redIcon}).addTo(map).bindPopup("จุดส่ง").openPopup(); // เปลี่ยนเป็นจุดส่ง
             }
             updateStatus();
         }
@@ -140,7 +142,7 @@
                 if (isPickup) {
                     document.getElementById('pickupSearch').value = placeName || "พิกัดจุดรับ";
                 } else {
-                    document.getElementById('destSearch').value = placeName || "พิกัดจุดหมาย";
+                    document.getElementById('destSearch').value = placeName || "พิกัดจุดส่ง"; // เปลี่ยนเป็นพิกัดจุดส่ง
                 }
             } catch (err) {
                 console.log("ไม่สามารถดึงชื่อสถานที่ได้");
@@ -170,40 +172,4 @@
             const name = document.getElementById('userName').value;
             const phone = document.getElementById('userPhone').value;
             const date = document.getElementById('travelDate').value;
-            const time = document.getElementById('travelTime').value;
-            const details = document.getElementById('bookingDetails').value; // ดึงข้อมูลรายละเอียด
-            
-            const pickupName = document.getElementById('pickupSearch').value || "จุดรับ (ไม่ระบุชื่อ)";
-            const destName = document.getElementById('destSearch').value || "จุดหมาย (ไม่ระบุชื่อ)";
-
-            if (!pickup || !destination || !name || !phone || !date || !time) {
-                alert("กรุณากรอกข้อมูล วันเดินทาง เวลารับ และระบุจุดรับ-ส่งให้ครบถ้วน");
-                return;
-            }
-
-            const btn = document.getElementById('btnSubmit');
-            btn.innerText = "กำลังบันทึกข้อมูล...";
-            btn.disabled = true;
-
-            try {
-                await addDoc(collection(db, "bookings"), {
-                    name: name,
-                    phone: phone,
-                    date: date,
-                    time: time,
-                    details: details || "-", // บันทึกรายละเอียด (ถ้าไม่ได้กรอกให้ใส่ -)
-                    pickup: { lat: pickup.lat, lng: pickup.lng, name: pickupName },
-                    destination: { lat: destination.lat, lng: destination.lng, name: destName },
-                    timestamp: new Date()
-                });
-                alert("จองคิวสำเร็จ! ระบบบันทึกข้อมูลเรียบร้อยแล้ว");
-                location.reload(); 
-            } catch (e) { 
-                alert("เกิดข้อผิดพลาด: " + e.message); 
-                btn.innerText = "ยืนยันการจอง";
-                btn.disabled = false;
-            }
-        };
-    </script>
-</body>
-</html>
+            const time = document.getElementById('
