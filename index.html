@@ -3,20 +3,41 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>จองรถสองแถวขอนแก่น</title>
+    <title>จองคิวใช้งานรถสองแถว เทศบาลนครขอนแก่น</title>
     <link rel="stylesheet" href="style.css">
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
 </head>
 <body>
     <div class="mobile-container">
-        <h1>🚍 จองรถสองแถวขอนแก่น</h1>
-        <div id="status" class="status-badge">📍 กรุณาปักหมุด "จุดรับ" บนแผนที่</div>
+        <h1>🚍 จองคิวใช้งานรถสองแถว เทศบาลนครขอนแก่น</h1>
+        <div id="status" class="status-badge">📍 กรุณาปักหมุดหรือค้นหา "จุดรับ"</div>
+        
+        <div class="card" style="margin-bottom: 15px; padding: 15px;">
+            <div class="form-group" style="margin-bottom: 10px;">
+                <label style="font-size: 16px;">📍 ค้นหาจุดรับ</label>
+                <div style="display: flex; gap: 10px;">
+                    <input type="text" id="pickupSearch" placeholder="พิมพ์ชื่อสถานที่รับ..." style="padding: 10px; font-size: 16px;">
+                    <button type="button" onclick="searchLocation('pickup')" style="width: 80px; padding: 10px; font-size: 16px;">ค้นหา</button>
+                </div>
+            </div>
+            <div class="form-group" style="margin-bottom: 0;">
+                <label style="font-size: 16px;">🏁 ค้นหาจุดหมาย</label>
+                <div style="display: flex; gap: 10px;">
+                    <input type="text" id="destSearch" placeholder="พิมพ์ชื่อสถานที่ปลายทาง..." style="padding: 10px; font-size: 16px;">
+                    <button type="button" onclick="searchLocation('dest')" style="width: 80px; padding: 10px; font-size: 16px; background-color: #e74c3c;">ค้นหา</button>
+                </div>
+            </div>
+            <div style="font-size: 13px; color: #7f8c8d; text-align: center; margin-top: 10px;">
+                * หรือสามารถใช้นิ้วแตะเพื่อปักหมุดบนแผนที่ได้โดยตรง
+            </div>
+        </div>
+
         <div id="map"></div>
 
         <div class="card">
             <div class="form-group">
                 <label>ชื่อผู้จอง</label>
-                <input type="text" id="userName" placeholder="เช่น นายขอนแก่น ใจดี">
+                <input type="text" id="userName" placeholder="ชื่อ-สกุล">
             </div>
             <div class="form-group">
                 <label>เบอร์โทรศัพท์</label>
@@ -35,6 +56,7 @@
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
         import { getFirestore, collection, addDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
+        // ใช้ Config ของคุณ
         const firebaseConfig = {
             apiKey: "AIzaSyDMMwciq6QoLSaWK6xfdr0U3ynyahtoaSk",
             authDomain: "studio-a33fe.firebaseapp.com",
@@ -49,44 +71,114 @@
         const app = initializeApp(firebaseConfig);
         const db = getFirestore(app);
 
+        // ตั้งค่าวันที่ขั้นต่ำ
         const dateInput = document.getElementById('travelDate');
         const tomorrow = new Date();
         tomorrow.setDate(tomorrow.getDate() + 1);
         dateInput.min = tomorrow.toISOString().split('T')[0];
 
+        // แผนที่
         const map = L.map('map').setView([16.4322, 102.8236], 13);
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '© OpenStreetMap' }).addTo(map);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '© OpenStreetMap'
+        }).addTo(map);
 
-        let pickup = null, destination = null;
-        let markers = [];
+        let pickup = null;
+        let destination = null;
+        let pickupMarker = null;
+        let destMarker = null;
 
+        const greenIcon = L.icon({
+            iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-green.png',
+            iconSize: [25, 41], iconAnchor: [12, 41]
+        });
+        
+        const redIcon = L.icon({
+            iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-red.png', 
+            iconSize: [25, 41], iconAnchor: [12, 41]
+        });
+
+        // ฟังก์ชันจัดการสถานะข้อความ
+        function updateStatus() {
+            const statusBadge = document.getElementById('status');
+            if (pickup && destination) {
+                statusBadge.innerText = '✅ ระบุจุดรับ-ส่งครบแล้ว กรุณากรอกข้อมูล';
+                statusBadge.style.background = '#27ae60';
+            } else if (pickup && !destination) {
+                statusBadge.innerText = '📍 กรุณาปักหมุดหรือค้นหา "จุดหมายปลายทาง" ต่อ';
+                statusBadge.style.background = '#e67e22';
+            } else {
+                statusBadge.innerText = '📍 กรุณาปักหมุดหรือค้นหา "จุดรับ"';
+                statusBadge.style.background = 'var(--secondary)';
+            }
+        }
+
+        // ฟังก์ชันวางหมุด
+        function placeMarker(latlng, type) {
+            if (type === 'pickup') {
+                if (pickupMarker) map.removeLayer(pickupMarker);
+                pickup = latlng;
+                pickupMarker = L.marker(pickup, {icon: greenIcon}).addTo(map).bindPopup("จุดรับ").openPopup();
+            } else {
+                if (destMarker) map.removeLayer(destMarker);
+                destination = latlng;
+                destMarker = L.marker(destination, {icon: redIcon}).addTo(map).bindPopup("จุดหมาย").openPopup();
+            }
+            updateStatus();
+        }
+
+        // คลิกบนแผนที่
         map.on('click', (e) => {
             if (!pickup) {
-                pickup = e.latlng;
-                markers.push(L.marker(pickup).addTo(map).bindPopup("จุดรับ").openPopup());
-                document.getElementById('status').innerText = '📍 ปักหมุด "จุดหมายปลายทาง" ต่อ';
-                document.getElementById('status').style.background = '#e67e22';
-            } else if (!destination) {
-                destination = e.latlng;
-                const redIcon = L.icon({
-                    iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-red.png', 
-                    iconSize: [25, 41], iconAnchor: [12, 41]
-                });
-                markers.push(L.marker(destination, {icon: redIcon}).addTo(map).bindPopup("จุดหมาย").openPopup());
-                document.getElementById('status').innerText = '✅ ปักหมุดครบแล้ว กรุณากรอกข้อมูล';
-                document.getElementById('status').style.background = '#27ae60';
+                placeMarker(e.latlng, 'pickup');
+            } else {
+                // หากมีจุดรับแล้ว ให้การคลิกครั้งต่อไปเป็นการกำหนด/เปลี่ยนจุดหมาย
+                placeMarker(e.latlng, 'dest');
             }
         });
 
+        // ระบบค้นหาสถานที่ (นำไปผูกกับ window เพื่อให้ปุ่ม HTML เรียกใช้ได้)
+        window.searchLocation = async function(type) {
+            const inputId = type === 'pickup' ? 'pickupSearch' : 'destSearch';
+            const query = document.getElementById(inputId).value;
+            
+            if (!query) {
+                alert("กรุณาพิมพ์ชื่อสถานที่ก่อนกดค้นหา");
+                return;
+            }
+
+            try {
+                // เพิ่มคำว่า "ขอนแก่น" เพื่อตีกรอบการค้นหาให้อยู่ในพื้นที่
+                const response = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query + ' ขอนแก่น')}`);
+                const data = await response.json();
+                
+                if (data && data.length > 0) {
+                    const latlng = L.latLng(data[0].lat, data[0].lon);
+                    map.setView(latlng, 15);
+                    placeMarker(latlng, type);
+                } else {
+                    alert('ไม่พบสถานที่นี้ กรุณาลองพิมพ์ชื่อให้ชัดเจนขึ้น หรือใช้นิ้วแตะปักหมุดบนแผนที่ได้เลยครับ');
+                }
+            } catch (err) {
+                alert('เกิดข้อผิดพลาดในการเชื่อมต่อระบบค้นหา');
+            }
+        };
+
+        // บันทึกข้อมูลลง Firebase
         document.getElementById('btnSubmit').onclick = async () => {
             const name = document.getElementById('userName').value;
             const phone = document.getElementById('userPhone').value;
             const date = document.getElementById('travelDate').value;
 
             if (!pickup || !destination || !name || !phone || !date) {
-                alert("กรุณากรอกข้อมูลและปักหมุดให้ครบถ้วน");
+                alert("กรุณากรอกข้อมูลและระบุจุดรับ-ส่งให้ครบถ้วน");
                 return;
             }
+
+            // เปลี่ยนข้อความปุ่มระหว่างโหลด
+            const btn = document.getElementById('btnSubmit');
+            btn.innerText = "กำลังบันทึกข้อมูล...";
+            btn.disabled = true;
 
             try {
                 await addDoc(collection(db, "bookings"), {
@@ -101,7 +193,8 @@
                 location.reload(); 
             } catch (e) { 
                 alert("เกิดข้อผิดพลาด: " + e.message); 
-                console.error(e);
+                btn.innerText = "ยืนยันการจอง";
+                btn.disabled = false;
             }
         };
     </script>
