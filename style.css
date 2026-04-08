@@ -1,7 +1,7 @@
 @import url('https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@400;600;700&display=swap');
 
 :root {
-    --primary: #f39c12; /* สีเหลืองรถสองแถวขอนแก่น */
+    --primary: #f39c12; 
     --secondary: #2c3e50;
     --bg: #f4f7f6;
 }
@@ -10,15 +10,33 @@
 
 body { margin: 0; background: var(--bg); color: var(--secondary); font-size: 18px; }
 
-.container { padding: 15px; max-width: 500px; margin: 0 auto; }
-
-h1 { text-align: center; font-size: 24px; color: var(--secondary); margin-bottom: 10px; }
-
-#map { 
-    height: 350px; width: 100%; border-radius: 15px; 
-    margin-bottom: 15px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); 
-    border: 2px solid #fff;
+/* สำหรับหน้า User (มือถือแนวตั้ง) */
+.mobile-container { 
+    padding: 15px; 
+    max-width: 500px; /* บังคับขนาดสูงสุดให้อยู่ในสัดส่วนมือถือ */
+    margin: 0 auto; 
 }
+
+/* สำหรับหน้า Admin (ยืดหยุ่นตามหน้าจอ) */
+.admin-container {
+    padding: 20px;
+    max-width: 1400px; /* ขยายขนาดสำหรับจอคอม */
+    margin: 0 auto;
+}
+
+h1 { text-align: center; font-size: 24px; color: var(--secondary); margin-bottom: 15px; }
+
+/* แผนที่เริ่มต้น */
+#map { 
+    width: 100%; 
+    border-radius: 15px; 
+    box-shadow: 0 4px 10px rgba(0,0,0,0.1); 
+    border: 2px solid #fff;
+    z-index: 1;
+}
+
+/* ความสูงแผนที่หน้า User */
+.mobile-container #map { height: 350px; margin-bottom: 15px; }
 
 .card {
     background: #fff; padding: 20px; border-radius: 15px;
@@ -29,8 +47,9 @@ h1 { text-align: center; font-size: 24px; color: var(--secondary); margin-bottom
 label { display: block; font-weight: 600; margin-bottom: 8px; }
 input {
     width: 100%; padding: 15px; border-radius: 10px;
-    border: 1px solid #ddd; font-size: 18px;
+    border: 1px solid #ddd; font-size: 18px; outline: none;
 }
+input:focus { border-color: var(--primary); }
 
 button {
     width: 100%; padding: 18px; border: none; border-radius: 10px;
@@ -41,12 +60,40 @@ button {
 button:active { transform: scale(0.98); background: #d68910; }
 
 .status-badge {
-    background: var(--secondary); color: #fff; padding: 10px;
-    border-radius: 8px; text-align: center; margin-bottom: 15px; font-size: 16px;
+    background: var(--secondary); color: #fff; padding: 12px;
+    border-radius: 8px; text-align: center; margin-bottom: 15px; font-weight: bold;
 }
 
-/* Admin Styles */
 .booking-item {
     border-bottom: 1px solid #eee; padding: 15px 0;
 }
 .booking-item:last-child { border: none; }
+
+/* --- Layout สำหรับ Admin บน Desktop --- */
+.admin-layout {
+    display: flex;
+    flex-direction: column; /* ค่าเริ่มต้นเป็นแนวตั้ง (สำหรับจอมือถือ) */
+    gap: 20px;
+}
+
+.map-section { flex: 2; }
+.list-section { flex: 1; }
+
+/* เมื่อหน้าจอใหญ่กว่า 768px (Tablet/Desktop) */
+@media (min-width: 768px) {
+    h1 { font-size: 32px; text-align: left; }
+    
+    .admin-layout {
+        flex-direction: row; /* เปลี่ยนเป็นแนวนอน ซ้าย-ขวา */
+        align-items: flex-start;
+    }
+    
+    /* ให้แผนที่สูงขึ้นบนหน้าจอคอม */
+    .admin-container #map { height: 70vh; position: sticky; top: 20px; }
+    
+    /* ให้รายการจองมี Scrollbar ในตัวเอง */
+    .list-section .card {
+        max-height: 70vh;
+        overflow-y: auto;
+    }
+}
