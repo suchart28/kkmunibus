@@ -33,8 +33,8 @@
                 word-wrap: break-word;
             }
             .print-table th { background-color: #e0e0e0 !important; -webkit-print-color-adjust: exact; text-align: center; font-size: 14px;}
-            /* ปรับความสูงแถวให้พอดีกับ QR Code (ประมาณ 26mm) */
-            .print-table tr.item-row { height: 26mm; } 
+            /* ปรับความสูงแถวให้พอดีกับ QR Code ที่ใหญ่ขึ้น (ประมาณ 45mm) */
+            .print-table tr.item-row { height: 45mm; } 
         }
     </style>
 </head>
@@ -191,7 +191,7 @@
             const printArea = document.getElementById('printArea');
             printArea.innerHTML = ''; 
             
-            const itemsPerPage = 10;
+            const itemsPerPage = 5; // เปลี่ยนเป็น 5 คิวต่อหน้า
             const totalPages = Math.ceil(window.pendingJobsToPrint.length / itemsPerPage);
             
             for (let i = 0; i < totalPages; i++) {
@@ -204,10 +204,10 @@
                 pageItems.forEach((job, index) => {
                     const rowNum = (i * itemsPerPage) + index + 1;
                     
-                    // สร้าง URL สำหรับ Google Maps นำทาง (จุดรับ -> จุดส่ง)
+                    // แก้ไข URL นำทางของ Google Maps ให้ถูกต้อง
                     const mapsUrl = `https://www.google.com/maps/dir/?api=1&origin=${job.pickup.lat},${job.pickup.lng}&destination=${job.destination.lat},${job.destination.lng}`;
-                    // สร้าง URL สำหรับดึงรูป QR Code
-                    const qrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=60x60&data=${encodeURIComponent(mapsUrl)}`;
+                    // ปรับขนาด QR Code เป็น 120x120
+                    const qrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=120x120&data=${encodeURIComponent(mapsUrl)}`;
 
                     rowsHtml += `
                         <tr class="item-row">
@@ -227,8 +227,8 @@
                                 <span style="font-size: 10px; color: #555;">(Lat: ${job.destination.lat.toFixed(5)}, Lng: ${job.destination.lng.toFixed(5)})</span>
                             </td>
                             <td style="width: 14%; text-align:center;">
-                                <img src="${qrCodeUrl}" alt="QR" width="60" height="60" style="display:block; margin: 0 auto;">
-                                <span style="font-size: 9px; color:#888;">สแกนนำทาง</span>
+                                <img src="${qrCodeUrl}" alt="QR" width="120" height="120" style="display:block; margin: 0 auto;">
+                                <span style="font-size: 11px; color:#888;">สแกนนำทาง</span>
                             </td>
                         </tr>
                     `;
