@@ -23,16 +23,18 @@
             }
             .print-page:last-child { page-break-after: auto; }
             .print-header { text-align: center; font-size: 18px; font-weight: bold; margin-bottom: 10px; color: black; }
-            .print-table { width: 100%; border-collapse: collapse; flex-grow: 1; display: table; }
+            .print-table { width: 100%; border-collapse: collapse; flex-grow: 1; display: table; table-layout: fixed; }
             .print-table th, .print-table td { 
                 border: 1px solid #000; 
-                padding: 8px; 
-                font-size: 14px; 
+                padding: 4px; 
+                font-size: 13px; 
                 vertical-align: middle;
                 color: black;
+                word-wrap: break-word;
             }
-            .print-table th { background-color: #e0e0e0 !important; -webkit-print-color-adjust: exact; text-align: center; }
-            .print-table tr.item-row { height: 25mm; } 
+            .print-table th { background-color: #e0e0e0 !important; -webkit-print-color-adjust: exact; text-align: center; font-size: 14px;}
+            /* ปรับความสูงแถวให้พอดีกับ QR Code (ประมาณ 26mm) */
+            .print-table tr.item-row { height: 26mm; } 
         }
     </style>
 </head>
@@ -201,14 +203,33 @@
                 
                 pageItems.forEach((job, index) => {
                     const rowNum = (i * itemsPerPage) + index + 1;
+                    
+                    // สร้าง URL สำหรับ Google Maps นำทาง (จุดรับ -> จุดส่ง)
+                    const mapsUrl = `https://www.google.com/maps/dir/?api=1&origin=${job.pickup.lat},${job.pickup.lng}&destination=${job.destination.lat},${job.destination.lng}`;
+                    // สร้าง URL สำหรับดึงรูป QR Code
+                    const qrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=60x60&data=${encodeURIComponent(mapsUrl)}`;
+
                     rowsHtml += `
                         <tr class="item-row">
-                            <td style="text-align:center; width: 5%;">${rowNum}</td>
-                            <td style="width: 15%; text-align:center;">${job.date}<br><strong style="font-size: 16px;">${job.time || '-'} น.</strong></td>
-                            <td style="width: 20%;">${job.name}<br><span style="font-size: 12px;">📞 ${job.phone}</span></td>
-                            <td style="text-align:center; width: 8%; font-weight: bold;">${job.passengers || '-'} คน</td>
-                            <td style="width: 26%; font-size: 12px;">${job.pickup.name || 'พิกัดจุดรับ'}</td>
-                            <td style="width: 26%; font-size: 12px;">${job.destination.name || 'พิกัดจุดส่ง'}</td>
+                            <td style="text-align:center; width: 4%;">${rowNum}</td>
+                            <td style="width: 12%; text-align:center;">${job.date}<br><strong style="font-size: 15px;">${job.time || '-'} น.</strong></td>
+                            <td style="width: 18%;">
+                                <strong>${job.name}</strong><br>
+                                <span style="font-size: 11px;">📞 ${job.phone}</span><br>
+                                <span style="font-size: 11px; color:#27ae60;">👥 ${job.passengers || '-'} คน</span>
+                            </td>
+                            <td style="width: 26%;">
+                                <strong>${job.pickup.name || 'พิกัดจุดรับ'}</strong><br>
+                                <span style="font-size: 10px; color: #555;">(Lat: ${job.pickup.lat.toFixed(5)}, Lng: ${job.pickup.lng.toFixed(5)})</span>
+                            </td>
+                            <td style="width: 26%;">
+                                <strong>${job.destination.name || 'พิกัดจุดส่ง'}</strong><br>
+                                <span style="font-size: 10px; color: #555;">(Lat: ${job.destination.lat.toFixed(5)}, Lng: ${job.destination.lng.toFixed(5)})</span>
+                            </td>
+                            <td style="width: 14%; text-align:center;">
+                                <img src="${qrCodeUrl}" alt="QR" width="60" height="60" style="display:block; margin: 0 auto;">
+                                <span style="font-size: 9px; color:#888;">สแกนนำทาง</span>
+                            </td>
                         </tr>
                     `;
                 });
@@ -223,12 +244,12 @@
                     <table class="print-table">
                         <thead>
                             <tr>
-                                <th>ลำดับ</th>
+                                <th>คิว</th>
                                 <th>วัน / เวลา</th>
-                                <th>ชื่อผู้จอง - เบอร์โทร</th>
-                                <th>ผู้โดยสาร</th>
+                                <th>ข้อมูลผู้จอง</th>
                                 <th>📍 จุดรับ</th>
                                 <th>🏁 จุดส่ง</th>
+                                <th>🗺️ สแกนนำทาง</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -238,7 +259,11 @@
                 `;
                 printArea.appendChild(pageDiv);
             }
-            window.print();
+            
+            // ใช้ setTimeout เพื่อให้เวลายืนยันว่าภาพ QR โหลดเสร็จก่อนเปิดหน้า Print
+            setTimeout(() => {
+                window.print();
+            }, 500);
         };
 
         window.drawRoute = (plat, plng, dlat, dlng) => {
