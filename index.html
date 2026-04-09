@@ -169,7 +169,7 @@
             const phone = document.getElementById('userPhone').value;
             const date = document.getElementById('travelDate').value;
             const time = document.getElementById('travelTime').value;
-            const passengers = document.getElementById('passengerCount').value; // จำนวนผู้โดยสาร
+            const passengers = document.getElementById('passengerCount').value; 
             const details = document.getElementById('bookingDetails').value;
             
             const pickupName = document.getElementById('pickupSearch').value || "จุดรับ (ไม่ระบุชื่อ)";
@@ -190,11 +190,12 @@
                     phone: phone,
                     date: date,
                     time: time,
-                    passengers: passengers, // บันทึกจำนวนคน
+                    passengers: passengers, 
                     details: details || "-",
                     pickup: { lat: pickup.lat, lng: pickup.lng, name: pickupName },
                     destination: { lat: destination.lat, lng: destination.lng, name: destName },
-                    timestamp: new Date()
+                    timestamp: new Date(),
+                    status: "pending" // เพิ่มสถานะเริ่มต้น
                 });
                 alert("จองคิวสำเร็จ!");
                 location.reload(); 
