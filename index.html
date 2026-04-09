@@ -15,16 +15,17 @@
         <div class="card" style="margin-bottom: 15px; padding: 15px;">
             <div class="form-group" style="margin-bottom: 10px;">
                 <label>📍 จุดรับ</label>
-                <div style="display: flex; gap: 10px;">
-                    <input type="text" id="pickupSearch" placeholder="พิมพ์ค้นหา หรือจิ้มบนแผนที่...">
-                    <button type="button" onclick="searchLocation('pickup')" style="width: 80px; padding: 10px; font-size: 15px; background-color: #27ae60;">ค้นหา</button>
+                <div style="display: flex; gap: 5px;">
+                    <input type="text" id="pickupSearch" placeholder="พิมพ์ค้นหา หรือจิ้มบนแผนที่..." style="flex: 1;">
+                    <button type="button" onclick="getCurrentLocation()" id="btnLocation" style="width: 45px; padding: 10px; font-size: 16px; background-color: #3498db; display: flex; justify-content: center; align-items: center;" title="ตำแหน่งปัจจุบันของฉัน">📍</button>
+                    <button type="button" onclick="searchLocation('pickup')" style="width: 70px; padding: 10px; font-size: 15px; background-color: #27ae60;">ค้นหา</button>
                 </div>
             </div>
             <div class="form-group" style="margin-bottom: 0;">
                 <label>🏁 จุดส่ง</label>
-                <div style="display: flex; gap: 10px;">
-                    <input type="text" id="destSearch" placeholder="พิมพ์ค้นหา หรือจิ้มบนแผนที่...">
-                    <button type="button" onclick="searchLocation('dest')" style="width: 80px; padding: 10px; font-size: 15px; background-color: #e74c3c;">ค้นหา</button>
+                <div style="display: flex; gap: 5px;">
+                    <input type="text" id="destSearch" placeholder="พิมพ์ค้นหา หรือจิ้มบนแผนที่..." style="flex: 1;">
+                    <button type="button" onclick="searchLocation('dest')" style="width: 70px; padding: 10px; font-size: 15px; background-color: #e74c3c;">ค้นหา</button>
                 </div>
             </div>
         </div>
@@ -118,12 +119,10 @@
             if (type === 'pickup') {
                 if (pickupMarker) map.removeLayer(pickupMarker);
                 pickup = latlng;
-                // เอา .bindPopup("จุดรับ").openPopup() ออก
                 pickupMarker = L.marker(pickup, {icon: greenIcon}).addTo(map); 
             } else {
                 if (destMarker) map.removeLayer(destMarker);
                 destination = latlng;
-                // เอา .bindPopup("จุดส่ง").openPopup() ออก
                 destMarker = L.marker(destination, {icon: redIcon}).addTo(map);
             }
             updateStatus();
@@ -147,6 +146,46 @@
                 }
             } catch (err) { console.log("ไม่สามารถดึงชื่อสถานที่ได้"); }
         });
+
+        // ฟังก์ชันใหม่: ดึงตำแหน่งปัจจุบัน
+        window.getCurrentLocation = () => {
+            const btn = document.getElementById('btnLocation');
+            if (navigator.geolocation) {
+                btn.innerText = "⏳"; // เปลี่ยนไอคอนตอนกำลังโหลด
+                btn.disabled = true;
+
+                navigator.geolocation.getCurrentPosition(async (position) => {
+                    const lat = position.coords.latitude;
+                    const lng = position.coords.longitude;
+                    const latlng = L.latLng(lat, lng);
+                    
+                    // เลื่อนแผนที่ไปตำแหน่งปัจจุบันและปักหมุดจุดรับ
+                    map.setView(latlng, 16);
+                    placeMarker(latlng, 'pickup');
+
+                    // ดึงชื่อสถานที่จากพิกัด
+                    try {
+                        const response = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&zoom=18&addressdetails=1`);
+                        const data = await response.json();
+                        let placeName = data.name || (data.address ? (data.address.road || data.address.suburb || data.address.village) : null);
+                        if (!placeName) placeName = data.display_name.split(',').slice(0, 2).join(', ');
+                        
+                        document.getElementById('pickupSearch').value = placeName || `พิกัด: ${lat.toFixed(4)}, ${lng.toFixed(4)}`;
+                    } catch (err) {
+                        document.getElementById('pickupSearch').value = `พิกัด: ${lat.toFixed(4)}, ${lng.toFixed(4)}`;
+                    }
+
+                    btn.innerText = "📍"; // คืนค่าปุ่ม
+                    btn.disabled = false;
+                }, (error) => {
+                    alert("ไม่สามารถดึงตำแหน่งปัจจุบันได้ กรุณาเปิด GPS/Location บนอุปกรณ์ของคุณ หรือจิ้มเลือกบนแผนที่ด้วยตนเอง");
+                    btn.innerText = "📍";
+                    btn.disabled = false;
+                }, { enableHighAccuracy: true });
+            } else {
+                alert("เบราว์เซอร์ของคุณไม่รองรับการดึงตำแหน่งปัจจุบัน");
+            }
+        };
 
         window.searchLocation = async function(type) {
             const inputId = type === 'pickup' ? 'pickupSearch' : 'destSearch';
