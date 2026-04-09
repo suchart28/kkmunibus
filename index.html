@@ -118,11 +118,13 @@
             if (type === 'pickup') {
                 if (pickupMarker) map.removeLayer(pickupMarker);
                 pickup = latlng;
-                pickupMarker = L.marker(pickup, {icon: greenIcon}).addTo(map).bindPopup("จุดรับ").openPopup();
+                // เอา .bindPopup("จุดรับ").openPopup() ออก
+                pickupMarker = L.marker(pickup, {icon: greenIcon}).addTo(map); 
             } else {
                 if (destMarker) map.removeLayer(destMarker);
                 destination = latlng;
-                destMarker = L.marker(destination, {icon: redIcon}).addTo(map).bindPopup("จุดส่ง").openPopup();
+                // เอา .bindPopup("จุดส่ง").openPopup() ออก
+                destMarker = L.marker(destination, {icon: redIcon}).addTo(map);
             }
             updateStatus();
         }
@@ -195,7 +197,7 @@
                     pickup: { lat: pickup.lat, lng: pickup.lng, name: pickupName },
                     destination: { lat: destination.lat, lng: destination.lng, name: destName },
                     timestamp: new Date(),
-                    status: "pending" // เพิ่มสถานะเริ่มต้น
+                    status: "pending" 
                 });
                 alert("จองคิวสำเร็จ!");
                 location.reload(); 
