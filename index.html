@@ -3,72 +3,93 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>จองคิวใช้งานรถสองแถว เทศบาลนครขอนแก่น</title>
+    <title>Admin - แผงควบคุมรถสองแถว</title>
     <link rel="stylesheet" href="style.css">
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <link rel="stylesheet" href="https://unpkg.com/leaflet-routing-machine@latest/dist/leaflet-routing-machine.css" />
+    
+    <style>
+        @media print {
+            /* ซ่อนทุกอย่างบนหน้าเว็บปกติ */
+            body > *:not(#printArea) { display: none !important; }
+            
+            /* แสดงเฉพาะพื้นที่ที่เราจะ Print */
+            #printArea { display: block !important; width: 100%; margin: 0; padding: 0; }
+            
+            /* ตั้งค่าหน้ากระดาษ A4 */
+            @page { size: A4 portrait; margin: 10mm; }
+            
+            .print-page { 
+                width: 100%; 
+                height: 277mm; /* ความสูง A4 หักลบ margin */
+                page-break-after: always; 
+                display: flex;
+                flex-direction: column;
+                font-family: 'Sarabun', 'Chakra Petch', sans-serif;
+            }
+            .print-page:last-child { page-break-after: auto; }
+            
+            .print-header { text-align: center; font-size: 18px; font-weight: bold; margin-bottom: 10px; color: black; }
+            
+            .print-table { width: 100%; border-collapse: collapse; flex-grow: 1; display: table; }
+            .print-table th, .print-table td { 
+                border: 1px solid #000; 
+                padding: 8px; 
+                font-size: 14px; 
+                vertical-align: middle;
+                color: black;
+            }
+            .print-table th { background-color: #e0e0e0 !important; -webkit-print-color-adjust: exact; text-align: center; }
+            
+            /* บังคับความสูงของแถว เพื่อให้ 1 หน้ามี 10 แถวพอดี (แถวละ ~25mm) */
+            .print-table tr.item-row { height: 25mm; } 
+        }
+    </style>
 </head>
 <body>
-    <div class="mobile-container">
-        <h1>🚍 จองคิวใช้งานรถสองแถว เทศบาลนครขอนแก่น</h1>
-        <div id="status" class="status-badge">📍 กรุณาปักหมุดหรือค้นหา</div>
+    <div id="printArea" style="display: none;"></div>
+
+    <div class="admin-container">
+        <h1>🛠 แผงควบคุมรถสองแถว (Admin Dashboard)</h1>
         
-        <div class="card" style="margin-bottom: 15px; padding: 15px;">
-            <div class="form-group" style="margin-bottom: 10px;">
-                <label>📍 จุดรับ</label>
-                <div style="display: flex; gap: 5px;">
-                    <input type="text" id="pickupSearch" placeholder="พิมพ์ค้นหา หรือจิ้มบนแผนที่..." style="flex: 1;">
-                    <button type="button" onclick="getCurrentLocation()" id="btnLocation" style="width: 45px; padding: 10px; font-size: 16px; background-color: #3498db; display: flex; justify-content: center; align-items: center;" title="ตำแหน่งปัจจุบันของฉัน">📍</button>
-                    <button type="button" onclick="searchLocation('pickup')" style="width: 70px; padding: 10px; font-size: 15px; background-color: #27ae60;">ค้นหา</button>
-                </div>
-            </div>
-            <div class="form-group" style="margin-bottom: 0;">
-                <label>🏁 จุดส่ง</label>
-                <div style="display: flex; gap: 5px;">
-                    <input type="text" id="destSearch" placeholder="พิมพ์ค้นหา หรือจิ้มบนแผนที่..." style="flex: 1;">
-                    <button type="button" onclick="searchLocation('dest')" style="width: 70px; padding: 10px; font-size: 15px; background-color: #e74c3c;">ค้นหา</button>
-                </div>
-            </div>
+        <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; margin-bottom: 15px;">
+            <div style="font-size: 14px; color: #555;">ระบบจัดการคิวรถสองแถวแบบ Real-time</div>
+            <button onclick="window.printQueue()" style="padding: 10px 20px; font-size: 16px; background-color: #8e44ad; color: white; border: none; border-radius: 8px; cursor: pointer; display: flex; align-items: center; gap: 8px;">
+                🖨️ พิมพ์คิวงาน (A4)
+            </button>
         </div>
 
-        <div id="map"></div>
-
-        <div class="card">
-            <div class="form-group">
-                <label>ชื่อผู้จอง</label>
-                <input type="text" id="userName" placeholder="ชื่อ-สกุล">
+        <div class="dashboard-stats" style="display: flex; gap: 10px; margin-bottom: 20px; flex-wrap: wrap;">
+            <div class="card" style="flex: 1; text-align: center; background: #34495e; color: white; padding: 15px; margin-bottom: 0; min-width: 120px;">
+                <h3 style="margin: 0 0 10px 0; font-size: 14px;">📅 จองทั้งหมด</h3>
+                <h2 id="totalMonth" style="margin: 0; font-size: 24px;">0</h2>
             </div>
-            <div class="form-group">
-                <label>เบอร์โทรศัพท์</label>
-                <input type="tel" id="userPhone" placeholder="08x-xxxxxxx">
+            <div class="card" style="flex: 1; text-align: center; background: #27ae60; color: white; padding: 15px; margin-bottom: 0; min-width: 120px;">
+                <h3 style="margin: 0 0 10px 0; font-size: 14px;">✅ สำเร็จ</h3>
+                <h2 id="completedMonth" style="margin: 0; font-size: 24px;">0</h2>
+            </div>
+            <div class="card" style="flex: 1; text-align: center; background: #e74c3c; color: white; padding: 15px; margin-bottom: 0; min-width: 120px;">
+                <h3 style="margin: 0 0 10px 0; font-size: 14px;">❌ ไม่สำเร็จ</h3>
+                <h2 id="failedMonth" style="margin: 0; font-size: 24px;">0</h2>
+            </div>
+        </div>
+        
+        <div class="admin-layout">
+            <div class="map-section">
+                <div id="map"></div>
             </div>
             
-            <div style="display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 15px;">
-                <div class="form-group" style="flex: 1; min-width: 140px; margin-bottom: 0;">
-                    <label>วันเดินทาง</label>
-                    <input type="date" id="travelDate">
-                </div>
-                <div class="form-group" style="flex: 1; min-width: 140px; margin-bottom: 0;">
-                    <label>เวลารับ</label>
-                    <input type="time" id="travelTime">
-                </div>
-                <div class="form-group" style="flex: 1; min-width: 140px; margin-bottom: 0;">
-                    <label>จำนวนผู้โดยสาร</label>
-                    <input type="number" id="passengerCount" min="1" placeholder="ระบุจำนวนคน">
-                </div>
+            <div class="list-section">
+                <div id="bookingList" class="card">กำลังโหลดข้อมูลการจอง...</div>
             </div>
-
-            <div class="form-group" style="margin-bottom: 20px;">
-                <label>รายละเอียดเพิ่มเติม (ถ้ามี)</label>
-                <textarea id="bookingDetails" placeholder="เช่น มีสัมภาระขนาดใหญ่, หรือจุดสังเกตเพิ่มเติม..."></textarea>
-            </div>
-            <button id="btnSubmit">ยืนยันการจอง</button>
         </div>
     </div>
 
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://unpkg.com/leaflet-routing-machine@latest/dist/leaflet-routing-machine.js"></script>
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-        import { getFirestore, collection, addDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+        import { getFirestore, collection, onSnapshot, query, orderBy, doc, deleteDoc, updateDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
         const firebaseConfig = {
             apiKey: "AIzaSyDMMwciq6QoLSaWK6xfdr0U3ynyahtoaSk",
@@ -83,167 +104,204 @@
 
         const app = initializeApp(firebaseConfig);
         const db = getFirestore(app);
-
-        // กำหนดวันที่ขั้นต่ำเป็นวันพรุ่งนี้
-        const dateInput = document.getElementById('travelDate');
-        const tomorrow = new Date();
-        tomorrow.setDate(tomorrow.getDate() + 1);
-        dateInput.min = tomorrow.toISOString().split('T')[0];
-
+        
         const map = L.map('map').setView([16.4322, 102.8236], 13);
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '© OpenStreetMap' }).addTo(map);
+        
+        let routingControl = null;
+        
+        // ตัวแปรสำหรับเก็บคิวงานที่ยังไม่เสร็จ (ใช้สำหรับพิมพ์)
+        window.pendingJobsToPrint = [];
 
-        let pickup = null;
-        let destination = null;
-        let pickupMarker = null;
-        let destMarker = null;
+        const q = query(collection(db, "bookings"), orderBy("date", "asc"));
+        
+        onSnapshot(q, (snapshot) => {
+            const listDiv = document.getElementById('bookingList');
+            listDiv.innerHTML = '';
+            window.pendingJobsToPrint = []; // เคลียร์คิวเดิมทุกครั้งที่มีการอัปเดต
+            
+            let statTotal = 0;
+            let statCompleted = 0;
+            let statFailed = 0;
+            const currentMonth = new Date().getMonth();
+            const currentYear = new Date().getFullYear();
+            let hasPendingJobs = false;
 
-        const greenIcon = L.icon({ iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-green.png', iconSize: [25, 41], iconAnchor: [12, 41] });
-        const redIcon = L.icon({ iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-red.png', iconSize: [25, 41], iconAnchor: [12, 41] });
-
-        function updateStatus() {
-            const statusBadge = document.getElementById('status');
-            if (pickup && destination) {
-                statusBadge.innerText = '✅ ระบุจุดรับ-ส่งครบแล้ว กรุณากรอกข้อมูล';
-                statusBadge.style.background = '#27ae60';
-            } else if (pickup && !destination) {
-                statusBadge.innerText = '📍 กรุณาปักหมุดหรือค้นหา "จุดส่ง" ต่อ';
-                statusBadge.style.background = '#e67e22';
-            } else {
-                statusBadge.innerText = '📍 กรุณาปักหมุดหรือค้นหา';
-                statusBadge.style.background = 'var(--secondary)';
-            }
-        }
-
-        function placeMarker(latlng, type) {
-            if (type === 'pickup') {
-                if (pickupMarker) map.removeLayer(pickupMarker);
-                pickup = latlng;
-                pickupMarker = L.marker(pickup, {icon: greenIcon}).addTo(map); 
-            } else {
-                if (destMarker) map.removeLayer(destMarker);
-                destination = latlng;
-                destMarker = L.marker(destination, {icon: redIcon}).addTo(map);
-            }
-            updateStatus();
-        }
-
-        map.on('click', async (e) => {
-            const isPickup = !pickup;
-            const type = isPickup ? 'pickup' : 'dest';
-            placeMarker(e.latlng, type);
-
-            try {
-                const response = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${e.latlng.lat}&lon=${e.latlng.lng}&zoom=18&addressdetails=1`);
-                const data = await response.json();
-                let placeName = data.name || (data.address ? (data.address.road || data.address.suburb || data.address.village) : null);
-                if (!placeName) placeName = data.display_name.split(',').slice(0, 2).join(', ');
-
-                if (isPickup) {
-                    document.getElementById('pickupSearch').value = placeName || "พิกัดจุดรับ";
-                } else {
-                    document.getElementById('destSearch').value = placeName || "พิกัดจุดส่ง";
+            snapshot.forEach((firestoreDoc) => {
+                const data = firestoreDoc.data();
+                const docId = firestoreDoc.id; 
+                
+                let docDate = data.timestamp ? data.timestamp.toDate() : new Date();
+                if (docDate.getMonth() === currentMonth && docDate.getFullYear() === currentYear) {
+                    statTotal++;
+                    if (data.status === 'completed') statCompleted++;
+                    if (data.status === 'failed') statFailed++;
                 }
-            } catch (err) { console.log("ไม่สามารถดึงชื่อสถานที่ได้"); }
+
+                if (data.status === 'completed' || data.status === 'failed') return;
+
+                // เพิ่มคิวที่ต้องทำลง Array สำหรับรอพิมพ์
+                window.pendingJobsToPrint.push(data);
+
+                hasPendingJobs = true;
+                const item = document.createElement('div');
+                item.className = 'booking-item';
+                
+                const timeText = data.time || "ไม่ระบุ";
+                const detailsText = data.details && data.details !== "-" ? data.details : "ไม่มี";
+                const pickupName = data.pickup.name || "พิกัดจุดรับ";
+                const destName = data.destination.name || "พิกัดจุดส่ง";
+
+                item.innerHTML = `
+                    <div style="margin-bottom: 8px; font-size: 15px; border-bottom: 1px dashed #ddd; padding-bottom: 5px;">
+                        📅 <strong style="color:var(--primary);">${data.date}</strong> | ⏰ เวลา: <strong style="color:#e74c3c;">${timeText} น.</strong>
+                    </div>
+                    <div style="margin-bottom: 3px; font-size: 15px;">👤 <strong>ชื่อ:</strong> ${data.name}</div>
+                    <div style="margin-bottom: 3px; font-size: 15px;">📞 <strong>โทร:</strong> ${data.phone}</div>
+                    <div style="margin-bottom: 5px; font-size: 15px;">👥 <strong>จำนวนผู้โดยสาร:</strong> <span style="color:#27ae60; font-weight:bold;">${data.passengers || 'ไม่ระบุ'}</span> คน</div>
+                    
+                    <div style="background: #f8f9fa; padding: 8px; border-radius: 8px; margin-bottom: 8px; font-size: 14px;">
+                        📝 <strong>รายละเอียดเพิ่มเติม:</strong><br> <span style="color: #555;">${detailsText}</span>
+                    </div>
+
+                    <div style="font-size: 14px; color: #34495e; margin-bottom: 3px;">📍 <strong>จุดรับ:</strong> ${pickupName}</div>
+                    <div style="font-size: 14px; color: #34495e; margin-bottom: 10px;">🏁 <strong>จุดส่ง:</strong> ${destName}</div>
+                    
+                    <div style="display: flex; gap: 5px; flex-wrap: wrap;">
+                        <button onclick="window.drawRoute(${data.pickup.lat}, ${data.pickup.lng}, ${data.destination.lat}, ${data.destination.lng})" style="flex: 1; min-width: 70px; padding: 8px; font-size: 12px; background-color: #3498db;">📍 เส้นทาง</button>
+                        <button onclick="window.completeJob('${docId}')" style="flex: 1; min-width: 70px; padding: 8px; font-size: 12px; background-color: #27ae60;">✅ สำเร็จ</button>
+                        <button onclick="window.failedJob('${docId}')" style="flex: 1; min-width: 70px; padding: 8px; font-size: 12px; background-color: #e67e22;">❌ ไม่สำเร็จ</button>
+                        <button onclick="window.deleteBooking('${docId}')" style="flex: 1; min-width: 70px; padding: 8px; font-size: 12px; background-color: #e74c3c;">🗑️ ลบ</button>
+                    </div>
+                `;
+                listDiv.appendChild(item);
+            });
+
+            document.getElementById('totalMonth').innerText = statTotal;
+            document.getElementById('completedMonth').innerText = statCompleted;
+            document.getElementById('failedMonth').innerText = statFailed;
+            
+            if (!hasPendingJobs) {
+                listDiv.innerHTML = '<p style="text-align:center; padding: 20px;">🎉 ไม่มีคิวรอดำเนินการ</p>';
+            }
+            
+            setTimeout(() => { map.invalidateSize(); }, 300);
         });
 
-        // ฟังก์ชันใหม่: ดึงตำแหน่งปัจจุบัน
-        window.getCurrentLocation = () => {
-            const btn = document.getElementById('btnLocation');
-            if (navigator.geolocation) {
-                btn.innerText = "⏳"; // เปลี่ยนไอคอนตอนกำลังโหลด
-                btn.disabled = true;
-
-                navigator.geolocation.getCurrentPosition(async (position) => {
-                    const lat = position.coords.latitude;
-                    const lng = position.coords.longitude;
-                    const latlng = L.latLng(lat, lng);
-                    
-                    // เลื่อนแผนที่ไปตำแหน่งปัจจุบันและปักหมุดจุดรับ
-                    map.setView(latlng, 16);
-                    placeMarker(latlng, 'pickup');
-
-                    // ดึงชื่อสถานที่จากพิกัด
-                    try {
-                        const response = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&zoom=18&addressdetails=1`);
-                        const data = await response.json();
-                        let placeName = data.name || (data.address ? (data.address.road || data.address.suburb || data.address.village) : null);
-                        if (!placeName) placeName = data.display_name.split(',').slice(0, 2).join(', ');
-                        
-                        document.getElementById('pickupSearch').value = placeName || `พิกัด: ${lat.toFixed(4)}, ${lng.toFixed(4)}`;
-                    } catch (err) {
-                        document.getElementById('pickupSearch').value = `พิกัด: ${lat.toFixed(4)}, ${lng.toFixed(4)}`;
-                    }
-
-                    btn.innerText = "📍"; // คืนค่าปุ่ม
-                    btn.disabled = false;
-                }, (error) => {
-                    alert("ไม่สามารถดึงตำแหน่งปัจจุบันได้ กรุณาเปิด GPS/Location บนอุปกรณ์ของคุณ หรือจิ้มเลือกบนแผนที่ด้วยตนเอง");
-                    btn.innerText = "📍";
-                    btn.disabled = false;
-                }, { enableHighAccuracy: true });
-            } else {
-                alert("เบราว์เซอร์ของคุณไม่รองรับการดึงตำแหน่งปัจจุบัน");
-            }
-        };
-
-        window.searchLocation = async function(type) {
-            const inputId = type === 'pickup' ? 'pickupSearch' : 'destSearch';
-            const query = document.getElementById(inputId).value;
-            if (!query) { alert("กรุณาพิมพ์ชื่อสถานที่ก่อนกดค้นหา"); return; }
-            try {
-                const response = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query + ' ขอนแก่น')}`);
-                const data = await response.json();
-                if (data && data.length > 0) {
-                    const latlng = L.latLng(data[0].lat, data[0].lon);
-                    map.setView(latlng, 15);
-                    placeMarker(latlng, type);
-                    document.getElementById(inputId).value = data[0].name || query; 
-                } else {
-                    alert('ไม่พบสถานที่นี้ กรุณาลองใหม่');
-                }
-            } catch (err) { alert('เกิดข้อผิดพลาดในการเชื่อมต่อ'); }
-        };
-
-        document.getElementById('btnSubmit').onclick = async () => {
-            const name = document.getElementById('userName').value;
-            const phone = document.getElementById('userPhone').value;
-            const date = document.getElementById('travelDate').value;
-            const time = document.getElementById('travelTime').value;
-            const passengers = document.getElementById('passengerCount').value; 
-            const details = document.getElementById('bookingDetails').value;
-            
-            const pickupName = document.getElementById('pickupSearch').value || "จุดรับ (ไม่ระบุชื่อ)";
-            const destName = document.getElementById('destSearch').value || "จุดส่ง (ไม่ระบุชื่อ)";
-
-            if (!pickup || !destination || !name || !phone || !date || !time || !passengers) {
-                alert("กรุณากรอกข้อมูลให้ครบทุกช่อง (รวมถึงจำนวนผู้โดยสาร)");
+        // ==========================================
+        // ฟังก์ชันสร้างหน้า Print (10 คิวต่อหน้า A4)
+        // ==========================================
+        window.printQueue = () => {
+            if (!window.pendingJobsToPrint || window.pendingJobsToPrint.length === 0) {
+                alert("ไม่มีคิวงานรอดำเนินการให้พิมพ์ครับ");
                 return;
             }
 
-            const btn = document.getElementById('btnSubmit');
-            btn.innerText = "กำลังบันทึกข้อมูล...";
-            btn.disabled = true;
-
-            try {
-                await addDoc(collection(db, "bookings"), {
-                    name: name,
-                    phone: phone,
-                    date: date,
-                    time: time,
-                    passengers: passengers, 
-                    details: details || "-",
-                    pickup: { lat: pickup.lat, lng: pickup.lng, name: pickupName },
-                    destination: { lat: destination.lat, lng: destination.lng, name: destName },
-                    timestamp: new Date(),
-                    status: "pending" 
+            const printArea = document.getElementById('printArea');
+            printArea.innerHTML = ''; // ล้างข้อมูลเก่า
+            
+            const itemsPerPage = 10;
+            const totalPages = Math.ceil(window.pendingJobsToPrint.length / itemsPerPage);
+            
+            for (let i = 0; i < totalPages; i++) {
+                const pageItems = window.pendingJobsToPrint.slice(i * itemsPerPage, (i + 1) * itemsPerPage);
+                const pageDiv = document.createElement('div');
+                pageDiv.className = 'print-page';
+                
+                let rowsHtml = '';
+                
+                // สร้างแถวข้อมูลจริง
+                pageItems.forEach((job, index) => {
+                    const rowNum = (i * itemsPerPage) + index + 1;
+                    rowsHtml += `
+                        <tr class="item-row">
+                            <td style="text-align:center; width: 5%;">${rowNum}</td>
+                            <td style="width: 15%; text-align:center;">${job.date}<br><strong style="font-size: 16px;">${job.time || '-'} น.</strong></td>
+                            <td style="width: 20%;">${job.name}<br><span style="font-size: 12px;">📞 ${job.phone}</span></td>
+                            <td style="text-align:center; width: 8%; font-weight: bold;">${job.passengers || '-'} คน</td>
+                            <td style="width: 26%; font-size: 12px;">${job.pickup.name || 'พิกัดจุดรับ'}</td>
+                            <td style="width: 26%; font-size: 12px;">${job.destination.name || 'พิกัดจุดส่ง'}</td>
+                        </tr>
+                    `;
                 });
-                alert("จองคิวสำเร็จ!");
-                location.reload(); 
-            } catch (e) { 
-                alert("เกิดข้อผิดพลาด: " + e.message); 
-                btn.innerText = "ยืนยันการจอง";
-                btn.disabled = false;
+                
+                // หากข้อมูลไม่ถึง 10 แถว ให้เติมบรรทัดว่างให้เต็มหน้า เพื่อให้ความสูงไม่เพี้ยน
+                const emptyRowsNeeded = itemsPerPage - pageItems.length;
+                for (let e = 0; e < emptyRowsNeeded; e++) {
+                     rowsHtml += `
+                        <tr class="item-row">
+                            <td></td><td></td><td></td><td></td><td></td><td></td>
+                        </tr>
+                    `;
+                }
+                
+                // ประกอบตารางใส่ลงในหน้ากระดาษ
+                pageDiv.innerHTML = `
+                    <div class="print-header">📄 รายการคิวจองรถสองแถวรอดำเนินการ (หน้า ${i + 1}/${totalPages})</div>
+                    <table class="print-table">
+                        <thead>
+                            <tr>
+                                <th>ลำดับ</th>
+                                <th>วัน / เวลา</th>
+                                <th>ชื่อผู้จอง - เบอร์โทร</th>
+                                <th>ผู้โดยสาร</th>
+                                <th>📍 จุดรับ</th>
+                                <th>🏁 จุดส่ง</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${rowsHtml}
+                        </tbody>
+                    </table>
+                `;
+                
+                printArea.appendChild(pageDiv);
+            }
+            
+            // สั่งเปิด Dialog Print ของเบราว์เซอร์
+            window.print();
+        };
+
+        window.drawRoute = (plat, plng, dlat, dlng) => {
+            if (routingControl) map.removeControl(routingControl);
+            routingControl = L.Routing.control({
+                waypoints: [ L.latLng(plat, plng), L.latLng(dlat, dlng) ],
+                router: L.Routing.osrmv1({ serviceUrl: 'https://router.project-osrm.org/route/v1' }),
+                lineOptions: { styles: [{ color: '#f39c12', opacity: 0.8, weight: 6 }] },
+                addWaypoints: false,
+                routeWhileDragging: false,
+                fitSelectedRoutes: true,
+                showAlternatives: false,
+                containerClassName: 'routing-ui'
+            }).addTo(map);
+            if (window.innerWidth < 1024) window.scrollTo({ top: 0, behavior: 'smooth' });
+        };
+
+        window.completeJob = async (id) => {
+            if (confirm("ยืนยันว่าให้บริการ 'สำเร็จ' แล้วใช่หรือไม่?")) {
+                try {
+                    await updateDoc(doc(db, "bookings", id), { status: "completed", completedAt: new Date() });
+                    if (routingControl) { map.removeControl(routingControl); routingControl = null; }
+                } catch (error) { alert("เกิดข้อผิดพลาด: " + error.message); }
+            }
+        };
+
+        window.failedJob = async (id) => {
+            const reason = prompt("กรุณาระบุสาเหตุที่ไม่สำเร็จ:");
+            if (reason === null) return; 
+            if (reason.trim() === "") { alert("กรุณาระบุสาเหตุด้วยครับ"); return; }
+            try {
+                await updateDoc(doc(db, "bookings", id), { status: "failed", failureReason: reason, failedAt: new Date() });
+                if (routingControl) { map.removeControl(routingControl); routingControl = null; }
+            } catch (error) { alert("เกิดข้อผิดพลาด: " + error.message); }
+        };
+
+        window.deleteBooking = async (id) => {
+            if (confirm("คุณแน่ใจหรือไม่ว่าต้องการ 'ลบ' รายการจองนี้?")) {
+                try {
+                    await deleteDoc(doc(db, "bookings", id));
+                    if (routingControl) { map.removeControl(routingControl); routingControl = null; }
+                } catch (error) { alert("เกิดข้อผิดพลาดในการลบ: " + error.message); }
             }
         };
     </script>
