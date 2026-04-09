@@ -33,7 +33,7 @@
                 word-wrap: break-word;
             }
             .print-table th { background-color: #e0e0e0 !important; -webkit-print-color-adjust: exact; text-align: center; font-size: 14px;}
-            /* ปรับความสูงแถวให้พอดีกับ QR Code ที่ใหญ่ขึ้น (ประมาณ 45mm) */
+            /* ปรับความสูงแถวให้พอดีกับหน้ากระดาษ A4 (5 คิวต่อหน้า) */
             .print-table tr.item-row { height: 45mm; } 
         }
     </style>
@@ -191,7 +191,7 @@
             const printArea = document.getElementById('printArea');
             printArea.innerHTML = ''; 
             
-            const itemsPerPage = 5; // เปลี่ยนเป็น 5 คิวต่อหน้า
+            const itemsPerPage = 5; 
             const totalPages = Math.ceil(window.pendingJobsToPrint.length / itemsPerPage);
             
             for (let i = 0; i < totalPages; i++) {
@@ -204,31 +204,31 @@
                 pageItems.forEach((job, index) => {
                     const rowNum = (i * itemsPerPage) + index + 1;
                     
-                    // แก้ไข URL นำทางของ Google Maps ให้ถูกต้อง
                     const mapsUrl = `https://www.google.com/maps/dir/?api=1&origin=${job.pickup.lat},${job.pickup.lng}&destination=${job.destination.lat},${job.destination.lng}`;
-                    // ปรับขนาด QR Code เป็น 120x120
-                    const qrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=120x120&data=${encodeURIComponent(mapsUrl)}`;
+                    // สร้าง QR Code ให้มีความละเอียดสูงขึ้นเพื่อรองรับการขยายภาพ
+                    const qrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(mapsUrl)}`;
 
+                    // นำการกำหนด width ออกจาก <td> เพื่อให้ไปใช้การตั้งค่าจาก <th> ด้านล่างแทน
                     rowsHtml += `
                         <tr class="item-row">
-                            <td style="text-align:center; width: 4%;">${rowNum}</td>
-                            <td style="width: 12%; text-align:center;">${job.date}<br><strong style="font-size: 15px;">${job.time || '-'} น.</strong></td>
-                            <td style="width: 18%;">
+                            <td style="text-align:center;">${rowNum}</td>
+                            <td style="text-align:center;">${job.date}<br><strong style="font-size: 15px;">${job.time || '-'} น.</strong></td>
+                            <td>
                                 <strong>${job.name}</strong><br>
                                 <span style="font-size: 11px;">📞 ${job.phone}</span><br>
                                 <span style="font-size: 11px; color:#27ae60;">👥 ${job.passengers || '-'} คน</span>
                             </td>
-                            <td style="width: 26%;">
+                            <td>
                                 <strong>${job.pickup.name || 'พิกัดจุดรับ'}</strong><br>
                                 <span style="font-size: 10px; color: #555;">(Lat: ${job.pickup.lat.toFixed(5)}, Lng: ${job.pickup.lng.toFixed(5)})</span>
                             </td>
-                            <td style="width: 26%;">
+                            <td>
                                 <strong>${job.destination.name || 'พิกัดจุดส่ง'}</strong><br>
                                 <span style="font-size: 10px; color: #555;">(Lat: ${job.destination.lat.toFixed(5)}, Lng: ${job.destination.lng.toFixed(5)})</span>
                             </td>
-                            <td style="width: 14%; text-align:center;">
-                                <img src="${qrCodeUrl}" alt="QR" width="120" height="120" style="display:block; margin: 0 auto;">
-                                <span style="font-size: 11px; color:#888;">สแกนนำทาง</span>
+                            <td style="text-align:center; padding: 6px;">
+                                <img src="${qrCodeUrl}" alt="QR" style="width: 90%; max-width: 150px; height: auto; display:block; margin: 0 auto;">
+                                <div style="font-size: 11px; color:#888; margin-top: 4px;">สแกนนำทาง</div>
                             </td>
                         </tr>
                     `;
@@ -244,12 +244,12 @@
                     <table class="print-table">
                         <thead>
                             <tr>
-                                <th>คิว</th>
-                                <th>วัน / เวลา</th>
-                                <th>ข้อมูลผู้จอง</th>
-                                <th>📍 จุดรับ</th>
-                                <th>🏁 จุดส่ง</th>
-                                <th>🗺️ สแกนนำทาง</th>
+                                <th style="width: 3%;">คิว</th>
+                                <th style="width: 12%;">วัน / เวลา</th>
+                                <th style="width: 18%;">ข้อมูลผู้จอง</th>
+                                <th style="width: 23%;">📍 จุดรับ</th>
+                                <th style="width: 23%;">🏁 จุดส่ง</th>
+                                <th style="width: 21%;">🗺️ สแกนนำทาง</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -260,10 +260,9 @@
                 printArea.appendChild(pageDiv);
             }
             
-            // ใช้ setTimeout เพื่อให้เวลายืนยันว่าภาพ QR โหลดเสร็จก่อนเปิดหน้า Print
             setTimeout(() => {
                 window.print();
-            }, 500);
+            }, 800); // เพิ่มเวลาให้ภาพโหลดนิดหน่อยเพราะ QR code ขนาดใหญ่ขึ้น
         };
 
         window.drawRoute = (plat, plng, dlat, dlng) => {
