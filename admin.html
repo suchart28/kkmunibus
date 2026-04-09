@@ -36,9 +36,53 @@
             /* ปรับความสูงแถวให้พอดีกับหน้ากระดาษ A4 (5 คิวต่อหน้า) */
             .print-table tr.item-row { height: 45mm; } 
         }
+
+        /* CSS สำหรับหน้าจอ Login */
+        #loginOverlay {
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: #2c3e50;
+            z-index: 99999;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            font-family: 'Sarabun', 'Chakra Petch', sans-serif;
+        }
+        .login-box {
+            background: white;
+            padding: 40px;
+            border-radius: 12px;
+            text-align: center;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+            max-width: 400px;
+            width: 90%;
+        }
+        .login-box input {
+            width: 100%; padding: 12px; font-size: 16px;
+            border: 1px solid #ddd; border-radius: 6px;
+            box-sizing: border-box; text-align: center; margin-bottom: 15px;
+        }
+        .login-box button {
+            width: 100%; padding: 12px; font-size: 16px;
+            background-color: #27ae60; color: white;
+            border: none; border-radius: 6px; cursor: pointer; font-weight: bold;
+        }
+        .login-box button:hover { background-color: #219653; }
     </style>
 </head>
 <body>
+
+    <div id="loginOverlay">
+        <div class="login-box">
+            <h2 style="color: #333; margin-top: 0;">🔒 เข้าสู่ระบบ Admin</h2>
+            <p style="color: #666; margin-bottom: 20px;">กรุณากรอกรหัสผ่านเพื่อเข้าใช้งาน</p>
+            <input type="password" id="adminPassword" placeholder="ใส่รหัสผ่านที่นี่">
+            <button onclick="window.checkPassword()">เข้าสู่ระบบ</button>
+            <p id="loginError" style="color: #e74c3c; margin-top: 15px; display: none; font-size: 14px; font-weight: bold;">❌ รหัสผ่านไม่ถูกต้อง!</p>
+        </div>
+    </div>
+
     <div id="printArea" style="display: none;"></div>
 
     <div class="admin-container">
@@ -82,6 +126,31 @@
         </div>
     </div>
 
+    <script>
+        window.checkPassword = () => {
+            const pwd = document.getElementById('adminPassword').value;
+            if (pwd === '987654321') {
+                // ปิดหน้าจอ Login ถ้าถูก
+                document.getElementById('loginOverlay').style.display = 'none';
+                // อัปเดตขนาดแผนที่ให้แสดงผลถูกต้องหลังจากถูกซ่อนไว้
+                setTimeout(() => { if (typeof map !== 'undefined') { map.invalidateSize(); } }, 300);
+            } else {
+                // แสดงข้อความแจ้งเตือนถ้าผิด
+                document.getElementById('loginError').style.display = 'block';
+            }
+        };
+
+        // กด Enter เพื่อล็อกอินได้เลย
+        document.addEventListener('DOMContentLoaded', () => {
+            const input = document.getElementById('adminPassword');
+            if (input) {
+                input.addEventListener('keypress', function(e) {
+                    if (e.key === 'Enter') { window.checkPassword(); }
+                });
+            }
+        });
+    </script>
+
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script src="https://unpkg.com/leaflet-routing-machine@latest/dist/leaflet-routing-machine.js"></script>
     <script type="module">
@@ -102,8 +171,9 @@
         const app = initializeApp(firebaseConfig);
         const db = getFirestore(app);
         
-        const map = L.map('map').setView([16.4322, 102.8236], 13);
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '© OpenStreetMap' }).addTo(map);
+        // ทำให้ตัวแปร map เป็น Global เพื่อให้ script ตรวจรหัสผ่านมองเห็นและอัปเดตขนาดได้
+        window.map = L.map('map').setView([16.4322, 102.8236], 13);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '© OpenStreetMap' }).addTo(window.map);
         
         let routingControl = null;
         window.pendingJobsToPrint = [];
@@ -179,7 +249,7 @@
                 listDiv.innerHTML = '<p style="text-align:center; padding: 20px;">🎉 ไม่มีคิวรอดำเนินการ</p>';
             }
             
-            setTimeout(() => { map.invalidateSize(); }, 300);
+            setTimeout(() => { window.map.invalidateSize(); }, 300);
         });
 
         window.printQueue = () => {
@@ -204,13 +274,8 @@
                 pageItems.forEach((job, index) => {
                     const rowNum = (i * itemsPerPage) + index + 1;
                     
-                    // อัปเดต URL เป็นรูปแบบ Google Maps Directions API
-                    // ไม่ต้องใส่ origin ระบบจะดึงตำแหน่ง GPS ปัจจุบันของผู้ใช้งาน
-                    // waypoints = จุดรับผู้โดยสาร
-                    // destination = จุดส่งปลายทาง
+                    // URL สำหรับให้ Google Maps เริ่มจาก ปัจจุบัน -> จุดรับ -> จุดส่ง
                     const mapsUrl = `https://www.google.com/maps/dir/?api=1&destination=${job.destination.lat},${job.destination.lng}&waypoints=${job.pickup.lat},${job.pickup.lng}&travelmode=driving`;
-                    
-                    // สร้าง QR Code ขนาด 200x200 ให้ชัดเจน
                     const qrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(mapsUrl)}`;
 
                     rowsHtml += `
@@ -270,7 +335,7 @@
         };
 
         window.drawRoute = (plat, plng, dlat, dlng) => {
-            if (routingControl) map.removeControl(routingControl);
+            if (routingControl) window.map.removeControl(routingControl);
             routingControl = L.Routing.control({
                 waypoints: [ L.latLng(plat, plng), L.latLng(dlat, dlng) ],
                 router: L.Routing.osrmv1({ serviceUrl: 'https://router.project-osrm.org/route/v1' }),
@@ -280,7 +345,7 @@
                 fitSelectedRoutes: true,
                 showAlternatives: false,
                 containerClassName: 'routing-ui'
-            }).addTo(map);
+            }).addTo(window.map);
             if (window.innerWidth < 1024) window.scrollTo({ top: 0, behavior: 'smooth' });
         };
 
@@ -288,7 +353,7 @@
             if (confirm("ยืนยันว่าให้บริการ 'สำเร็จ' แล้วใช่หรือไม่?")) {
                 try {
                     await updateDoc(doc(db, "bookings", id), { status: "completed", completedAt: new Date() });
-                    if (routingControl) { map.removeControl(routingControl); routingControl = null; }
+                    if (routingControl) { window.map.removeControl(routingControl); routingControl = null; }
                 } catch (error) { alert("เกิดข้อผิดพลาด: " + error.message); }
             }
         };
@@ -299,7 +364,7 @@
             if (reason.trim() === "") { alert("กรุณาระบุสาเหตุด้วยครับ"); return; }
             try {
                 await updateDoc(doc(db, "bookings", id), { status: "failed", failureReason: reason, failedAt: new Date() });
-                if (routingControl) { map.removeControl(routingControl); routingControl = null; }
+                if (routingControl) { window.map.removeControl(routingControl); routingControl = null; }
             } catch (error) { alert("เกิดข้อผิดพลาด: " + error.message); }
         };
 
@@ -307,7 +372,7 @@
             if (confirm("คุณแน่ใจหรือไม่ว่าต้องการ 'ลบ' รายการจองนี้?")) {
                 try {
                     await deleteDoc(doc(db, "bookings", id));
-                    if (routingControl) { map.removeControl(routingControl); routingControl = null; }
+                    if (routingControl) { window.map.removeControl(routingControl); routingControl = null; }
                 } catch (error) { alert("เกิดข้อผิดพลาดในการลบ: " + error.message); }
             }
         };
