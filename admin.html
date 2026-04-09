@@ -12,14 +12,18 @@
     <div class="admin-container">
         <h1>🛠 แผงควบคุมรถสองแถว (Admin Dashboard)</h1>
         
-        <div class="dashboard-stats" style="display: flex; gap: 15px; margin-bottom: 20px; flex-wrap: wrap;">
-            <div class="card" style="flex: 1; text-align: center; background: #3498db; color: white; padding: 15px; margin-bottom: 0; min-width: 150px;">
-                <h3 style="margin: 0 0 10px 0; font-size: 16px;">📅 คิวทั้งหมด (เดือนนี้)</h3>
-                <h2 id="totalMonth" style="margin: 0; font-size: 28px;">0</h2>
+        <div class="dashboard-stats" style="display: flex; gap: 10px; margin-bottom: 20px; flex-wrap: wrap;">
+            <div class="card" style="flex: 1; text-align: center; background: #34495e; color: white; padding: 15px; margin-bottom: 0; min-width: 120px;">
+                <h3 style="margin: 0 0 10px 0; font-size: 14px;">📅 จองทั้งหมด</h3>
+                <h2 id="totalMonth" style="margin: 0; font-size: 24px;">0</h2>
             </div>
-            <div class="card" style="flex: 1; text-align: center; background: #27ae60; color: white; padding: 15px; margin-bottom: 0; min-width: 150px;">
-                <h3 style="margin: 0 0 10px 0; font-size: 16px;">✅ สำเร็จ (เดือนนี้)</h3>
-                <h2 id="completedMonth" style="margin: 0; font-size: 28px;">0</h2>
+            <div class="card" style="flex: 1; text-align: center; background: #27ae60; color: white; padding: 15px; margin-bottom: 0; min-width: 120px;">
+                <h3 style="margin: 0 0 10px 0; font-size: 14px;">✅ สำเร็จ</h3>
+                <h2 id="completedMonth" style="margin: 0; font-size: 24px;">0</h2>
+            </div>
+            <div class="card" style="flex: 1; text-align: center; background: #e74c3c; color: white; padding: 15px; margin-bottom: 0; min-width: 120px;">
+                <h3 style="margin: 0 0 10px 0; font-size: 14px;">❌ ไม่สำเร็จ</h3>
+                <h2 id="failedMonth" style="margin: 0; font-size: 24px;">0</h2>
             </div>
         </div>
         
@@ -38,7 +42,6 @@
     <script src="https://unpkg.com/leaflet-routing-machine@latest/dist/leaflet-routing-machine.js"></script>
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-        // เพิ่ม updateDoc สำหรับอัปเดตสถานะ
         import { getFirestore, collection, onSnapshot, query, orderBy, doc, deleteDoc, updateDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
         const firebaseConfig = {
@@ -68,42 +71,35 @@
             
             let statTotal = 0;
             let statCompleted = 0;
+            let statFailed = 0;
             const currentMonth = new Date().getMonth();
             const currentYear = new Date().getFullYear();
             let hasPendingJobs = false;
-
-            if (snapshot.empty) {
-                listDiv.innerHTML = '<p style="text-align:center; padding: 20px;">ไม่มีรายการจองในระบบ</p>';
-                document.getElementById('totalMonth').innerText = 0;
-                document.getElementById('completedMonth').innerText = 0;
-                return;
-            }
 
             snapshot.forEach((firestoreDoc) => {
                 const data = firestoreDoc.data();
                 const docId = firestoreDoc.id; 
                 
-                // คำนวณสถิติ
+                // คำนวณสถิติรายเดือน
                 let docDate = data.timestamp ? data.timestamp.toDate() : new Date();
                 if (docDate.getMonth() === currentMonth && docDate.getFullYear() === currentYear) {
                     statTotal++;
                     if (data.status === 'completed') statCompleted++;
+                    if (data.status === 'failed') statFailed++;
                 }
 
-                // ถ้างานสำเร็จแล้ว ไม่ต้องแสดงในลิสต์รอดำเนินการ
-                if (data.status === 'completed') return;
+                // ซ่อนงานที่จัดการแล้ว (สำเร็จ หรือ ไม่สำเร็จ) ออกจากคิวหน้างาน
+                if (data.status === 'completed' || data.status === 'failed') return;
 
                 hasPendingJobs = true;
                 const item = document.createElement('div');
                 item.className = 'booking-item';
                 
-                const timeText = data.time ? data.time : "ไม่ระบุ";
+                const timeText = data.time || "ไม่ระบุ";
                 const detailsText = data.details && data.details !== "-" ? data.details : "ไม่มี";
-                
-                const pickupName = data.pickup.name ? data.pickup.name : `พิกัด: ${data.pickup.lat.toFixed(4)}, ${data.pickup.lng.toFixed(4)}`;
-                const destName = data.destination.name ? data.destination.name : `พิกัด: ${data.destination.lat.toFixed(4)}, ${data.destination.lng.toFixed(4)}`;
+                const pickupName = data.pickup.name || "พิกัดจุดรับ";
+                const destName = data.destination.name || "พิกัดจุดส่ง";
 
-                // เพิ่มส่วนแสดงรายละเอียดเพิ่มเติมและจำนวนผู้โดยสาร
                 item.innerHTML = `
                     <div style="margin-bottom: 8px; font-size: 15px; border-bottom: 1px dashed #ddd; padding-bottom: 5px;">
                         📅 <strong style="color:var(--primary);">${data.date}</strong> | ⏰ เวลา: <strong style="color:#e74c3c;">${timeText} น.</strong>
@@ -120,17 +116,19 @@
                     <div style="font-size: 14px; color: #34495e; margin-bottom: 10px;">🏁 <strong>จุดส่ง:</strong> ${destName}</div>
                     
                     <div style="display: flex; gap: 5px; flex-wrap: wrap;">
-                        <button onclick="window.drawRoute(${data.pickup.lat}, ${data.pickup.lng}, ${data.destination.lat}, ${data.destination.lng})" style="flex: 1; min-width: 80px; padding: 8px; font-size: 13px; background-color: #3498db;">📍 เส้นทาง</button>
-                        <button onclick="window.completeJob('${docId}')" style="flex: 1; min-width: 80px; padding: 8px; font-size: 13px; background-color: #27ae60;">✅ สำเร็จ</button>
-                        <button onclick="window.deleteBooking('${docId}')" style="flex: 1; min-width: 80px; padding: 8px; font-size: 13px; background-color: #e74c3c;">🗑️ ลบ</button>
+                        <button onclick="window.drawRoute(${data.pickup.lat}, ${data.pickup.lng}, ${data.destination.lat}, ${data.destination.lng})" style="flex: 1; min-width: 70px; padding: 8px; font-size: 12px; background-color: #3498db;">📍 เส้นทาง</button>
+                        <button onclick="window.completeJob('${docId}')" style="flex: 1; min-width: 70px; padding: 8px; font-size: 12px; background-color: #27ae60;">✅ สำเร็จ</button>
+                        <button onclick="window.failedJob('${docId}')" style="flex: 1; min-width: 70px; padding: 8px; font-size: 12px; background-color: #e67e22;">❌ ไม่สำเร็จ</button>
+                        <button onclick="window.deleteBooking('${docId}')" style="flex: 1; min-width: 70px; padding: 8px; font-size: 12px; background-color: #e74c3c;">🗑️ ลบ</button>
                     </div>
                 `;
                 listDiv.appendChild(item);
             });
 
-            // แสดงตัวเลขสถิติบน Dashboard
+            // อัปเดต Dashboard สถิติ
             document.getElementById('totalMonth').innerText = statTotal;
             document.getElementById('completedMonth').innerText = statCompleted;
+            document.getElementById('failedMonth').innerText = statFailed;
             
             if (!hasPendingJobs) {
                 listDiv.innerHTML = '<p style="text-align:center; padding: 20px;">🎉 ไม่มีคิวรอดำเนินการ</p>';
@@ -139,9 +137,9 @@
             setTimeout(() => { map.invalidateSize(); }, 300);
         });
 
+        // ฟังก์ชันวาดเส้นทาง
         window.drawRoute = (plat, plng, dlat, dlng) => {
             if (routingControl) map.removeControl(routingControl);
-            
             routingControl = L.Routing.control({
                 waypoints: [ L.latLng(plat, plng), L.latLng(dlat, dlng) ],
                 router: L.Routing.osrmv1({ serviceUrl: 'https://router.project-osrm.org/route/v1' }),
@@ -152,41 +150,53 @@
                 showAlternatives: false,
                 containerClassName: 'routing-ui'
             }).addTo(map);
-            
-            if (window.innerWidth < 1024) {
-                window.scrollTo({ top: 0, behavior: 'smooth' });
-            }
+            if (window.innerWidth < 1024) window.scrollTo({ top: 0, behavior: 'smooth' });
         };
 
-        // ฟังก์ชันอัปเดตสถานะงานให้เป็นเสร็จสิ้น
+        // ฟังก์ชัน: งานสำเร็จ
         window.completeJob = async (id) => {
-            if (confirm("ยืนยันว่าให้บริการ 'สำเร็จ' แล้วใช่หรือไม่? (งานจะถูกย้ายไปเก็บเป็นสถิติ)")) {
+            if (confirm("ยืนยันว่าให้บริการ 'สำเร็จ' แล้วใช่หรือไม่?")) {
                 try {
                     await updateDoc(doc(db, "bookings", id), {
                         status: "completed",
                         completedAt: new Date()
                     });
-                    if (routingControl) {
-                        map.removeControl(routingControl);
-                        routingControl = null;
-                    }
-                } catch (error) {
-                    alert("เกิดข้อผิดพลาด: " + error.message);
-                }
+                    if (routingControl) { map.removeControl(routingControl); routingControl = null; }
+                } catch (error) { alert("เกิดข้อผิดพลาด: " + error.message); }
             }
         };
 
+        // ฟังก์ชัน: งานไม่สำเร็จ (เพิ่มใหม่ตามคำขอ)
+        window.failedJob = async (id) => {
+            const reason = prompt("กรุณาระบุสาเหตุที่ไม่สำเร็จ (เช่น ติดต่อผู้จองไม่ได้, รถเสีย, ผู้จองยกเลิก):");
+            
+            // ถ้ากดยกเลิก prompt หรือไม่ได้พิมพ์อะไรเลย ให้หยุดทำงาน
+            if (reason === null) return; 
+            if (reason.trim() === "") {
+                alert("กรุณาระบุสาเหตุด้วยครับ");
+                return;
+            }
+
+            try {
+                await updateDoc(doc(db, "bookings", id), {
+                    status: "failed",
+                    failureReason: reason,
+                    failedAt: new Date()
+                });
+                alert("บันทึกสถานะ 'ไม่สำเร็จ' เรียบร้อย");
+                if (routingControl) { map.removeControl(routingControl); routingControl = null; }
+            } catch (error) {
+                alert("เกิดข้อผิดพลาด: " + error.message);
+            }
+        };
+
+        // ฟังก์ชัน: ลบข้อมูล
         window.deleteBooking = async (id) => {
-            if (confirm("คุณแน่ใจหรือไม่ว่าต้องการ 'ลบ' รายการจองนี้?")) {
+            if (confirm("คุณแน่ใจหรือไม่ว่าต้องการ 'ลบ' รายการจองนี้ออกจากฐานข้อมูล?")) {
                 try {
                     await deleteDoc(doc(db, "bookings", id));
-                    if (routingControl) {
-                        map.removeControl(routingControl);
-                        routingControl = null;
-                    }
-                } catch (error) {
-                    alert("เกิดข้อผิดพลาดในการลบข้อมูล: " + error.message);
-                }
+                    if (routingControl) { map.removeControl(routingControl); routingControl = null; }
+                } catch (error) { alert("เกิดข้อผิดพลาดในการลบ: " + error.message); }
             }
         };
     </script>
