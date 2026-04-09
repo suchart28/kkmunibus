@@ -12,6 +12,17 @@
     <div class="admin-container">
         <h1>🛠 แผงควบคุมรถสองแถว (Admin Dashboard)</h1>
         
+        <div class="dashboard-stats" style="display: flex; gap: 15px; margin-bottom: 20px; flex-wrap: wrap;">
+            <div class="card" style="flex: 1; text-align: center; background: #3498db; color: white; padding: 15px; margin-bottom: 0; min-width: 150px;">
+                <h3 style="margin: 0 0 10px 0; font-size: 16px;">📅 คิวทั้งหมด (เดือนนี้)</h3>
+                <h2 id="totalMonth" style="margin: 0; font-size: 28px;">0</h2>
+            </div>
+            <div class="card" style="flex: 1; text-align: center; background: #27ae60; color: white; padding: 15px; margin-bottom: 0; min-width: 150px;">
+                <h3 style="margin: 0 0 10px 0; font-size: 16px;">✅ สำเร็จ (เดือนนี้)</h3>
+                <h2 id="completedMonth" style="margin: 0; font-size: 28px;">0</h2>
+            </div>
+        </div>
+        
         <div class="admin-layout">
             <div class="map-section">
                 <div id="map"></div>
@@ -27,7 +38,8 @@
     <script src="https://unpkg.com/leaflet-routing-machine@latest/dist/leaflet-routing-machine.js"></script>
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-        import { getFirestore, collection, onSnapshot, query, orderBy, doc, deleteDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+        // เพิ่ม updateDoc สำหรับอัปเดตสถานะ
+        import { getFirestore, collection, onSnapshot, query, orderBy, doc, deleteDoc, updateDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
         const firebaseConfig = {
             apiKey: "AIzaSyDMMwciq6QoLSaWK6xfdr0U3ynyahtoaSk",
@@ -54,14 +66,34 @@
             const listDiv = document.getElementById('bookingList');
             listDiv.innerHTML = '';
             
+            let statTotal = 0;
+            let statCompleted = 0;
+            const currentMonth = new Date().getMonth();
+            const currentYear = new Date().getFullYear();
+            let hasPendingJobs = false;
+
             if (snapshot.empty) {
                 listDiv.innerHTML = '<p style="text-align:center; padding: 20px;">ไม่มีรายการจองในระบบ</p>';
+                document.getElementById('totalMonth').innerText = 0;
+                document.getElementById('completedMonth').innerText = 0;
                 return;
             }
 
             snapshot.forEach((firestoreDoc) => {
                 const data = firestoreDoc.data();
                 const docId = firestoreDoc.id; 
+                
+                // คำนวณสถิติ
+                let docDate = data.timestamp ? data.timestamp.toDate() : new Date();
+                if (docDate.getMonth() === currentMonth && docDate.getFullYear() === currentYear) {
+                    statTotal++;
+                    if (data.status === 'completed') statCompleted++;
+                }
+
+                // ถ้างานสำเร็จแล้ว ไม่ต้องแสดงในลิสต์รอดำเนินการ
+                if (data.status === 'completed') return;
+
+                hasPendingJobs = true;
                 const item = document.createElement('div');
                 item.className = 'booking-item';
                 
@@ -71,13 +103,14 @@
                 const pickupName = data.pickup.name ? data.pickup.name : `พิกัด: ${data.pickup.lat.toFixed(4)}, ${data.pickup.lng.toFixed(4)}`;
                 const destName = data.destination.name ? data.destination.name : `พิกัด: ${data.destination.lat.toFixed(4)}, ${data.destination.lng.toFixed(4)}`;
 
-                // เพิ่มส่วนแสดงรายละเอียดเพิ่มเติม
+                // เพิ่มส่วนแสดงรายละเอียดเพิ่มเติมและจำนวนผู้โดยสาร
                 item.innerHTML = `
                     <div style="margin-bottom: 8px; font-size: 15px; border-bottom: 1px dashed #ddd; padding-bottom: 5px;">
                         📅 <strong style="color:var(--primary);">${data.date}</strong> | ⏰ เวลา: <strong style="color:#e74c3c;">${timeText} น.</strong>
                     </div>
                     <div style="margin-bottom: 3px; font-size: 15px;">👤 <strong>ชื่อ:</strong> ${data.name}</div>
-                    <div style="margin-bottom: 5px; font-size: 15px;">📞 <strong>โทร:</strong> ${data.phone}</div>
+                    <div style="margin-bottom: 3px; font-size: 15px;">📞 <strong>โทร:</strong> ${data.phone}</div>
+                    <div style="margin-bottom: 5px; font-size: 15px;">👥 <strong>จำนวนผู้โดยสาร:</strong> <span style="color:#27ae60; font-weight:bold;">${data.passengers || 'ไม่ระบุ'}</span> คน</div>
                     
                     <div style="background: #f8f9fa; padding: 8px; border-radius: 8px; margin-bottom: 8px; font-size: 14px;">
                         📝 <strong>รายละเอียดเพิ่มเติม:</strong><br> <span style="color: #555;">${detailsText}</span>
@@ -86,13 +119,22 @@
                     <div style="font-size: 14px; color: #34495e; margin-bottom: 3px;">📍 <strong>จุดรับ:</strong> ${pickupName}</div>
                     <div style="font-size: 14px; color: #34495e; margin-bottom: 10px;">🏁 <strong>จุดส่ง:</strong> ${destName}</div>
                     
-                    <div style="display: flex; gap: 10px;">
-                        <button onclick="window.drawRoute(${data.pickup.lat}, ${data.pickup.lng}, ${data.destination.lat}, ${data.destination.lng})" style="flex: 2; padding: 10px; font-size: 14px; background-color: #3498db;">📍 ดูเส้นทาง</button>
-                        <button onclick="window.deleteBooking('${docId}')" style="flex: 1; padding: 10px; font-size: 14px; background-color: #e74c3c;">🗑️ ลบ</button>
+                    <div style="display: flex; gap: 5px; flex-wrap: wrap;">
+                        <button onclick="window.drawRoute(${data.pickup.lat}, ${data.pickup.lng}, ${data.destination.lat}, ${data.destination.lng})" style="flex: 1; min-width: 80px; padding: 8px; font-size: 13px; background-color: #3498db;">📍 เส้นทาง</button>
+                        <button onclick="window.completeJob('${docId}')" style="flex: 1; min-width: 80px; padding: 8px; font-size: 13px; background-color: #27ae60;">✅ สำเร็จ</button>
+                        <button onclick="window.deleteBooking('${docId}')" style="flex: 1; min-width: 80px; padding: 8px; font-size: 13px; background-color: #e74c3c;">🗑️ ลบ</button>
                     </div>
                 `;
                 listDiv.appendChild(item);
             });
+
+            // แสดงตัวเลขสถิติบน Dashboard
+            document.getElementById('totalMonth').innerText = statTotal;
+            document.getElementById('completedMonth').innerText = statCompleted;
+            
+            if (!hasPendingJobs) {
+                listDiv.innerHTML = '<p style="text-align:center; padding: 20px;">🎉 ไม่มีคิวรอดำเนินการ</p>';
+            }
             
             setTimeout(() => { map.invalidateSize(); }, 300);
         });
@@ -113,6 +155,24 @@
             
             if (window.innerWidth < 1024) {
                 window.scrollTo({ top: 0, behavior: 'smooth' });
+            }
+        };
+
+        // ฟังก์ชันอัปเดตสถานะงานให้เป็นเสร็จสิ้น
+        window.completeJob = async (id) => {
+            if (confirm("ยืนยันว่าให้บริการ 'สำเร็จ' แล้วใช่หรือไม่? (งานจะถูกย้ายไปเก็บเป็นสถิติ)")) {
+                try {
+                    await updateDoc(doc(db, "bookings", id), {
+                        status: "completed",
+                        completedAt: new Date()
+                    });
+                    if (routingControl) {
+                        map.removeControl(routingControl);
+                        routingControl = null;
+                    }
+                } catch (error) {
+                    alert("เกิดข้อผิดพลาด: " + error.message);
+                }
             }
         };
 
