@@ -204,11 +204,15 @@
                 pageItems.forEach((job, index) => {
                     const rowNum = (i * itemsPerPage) + index + 1;
                     
-                    const mapsUrl = `https://www.google.com/maps/dir/?api=1&origin=${job.pickup.lat},${job.pickup.lng}&destination=${job.destination.lat},${job.destination.lng}`;
-                    // สร้าง QR Code ให้มีความละเอียดสูงขึ้นเพื่อรองรับการขยายภาพ
+                    // อัปเดต URL เป็นรูปแบบ Google Maps Directions API
+                    // ไม่ต้องใส่ origin ระบบจะดึงตำแหน่ง GPS ปัจจุบันของผู้ใช้งาน
+                    // waypoints = จุดรับผู้โดยสาร
+                    // destination = จุดส่งปลายทาง
+                    const mapsUrl = `https://www.google.com/maps/dir/?api=1&destination=${job.destination.lat},${job.destination.lng}&waypoints=${job.pickup.lat},${job.pickup.lng}&travelmode=driving`;
+                    
+                    // สร้าง QR Code ขนาด 200x200 ให้ชัดเจน
                     const qrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(mapsUrl)}`;
 
-                    // นำการกำหนด width ออกจาก <td> เพื่อให้ไปใช้การตั้งค่าจาก <th> ด้านล่างแทน
                     rowsHtml += `
                         <tr class="item-row">
                             <td style="text-align:center;">${rowNum}</td>
@@ -228,7 +232,7 @@
                             </td>
                             <td style="text-align:center; padding: 6px;">
                                 <img src="${qrCodeUrl}" alt="QR" style="width: 90%; max-width: 150px; height: auto; display:block; margin: 0 auto;">
-                                <div style="font-size: 11px; color:#888; margin-top: 4px;">สแกนนำทาง</div>
+                                <div style="font-size: 11px; color:#888; margin-top: 4px;">สแกนนำทาง<br>(เริ่มที่ปัจจุบัน)</div>
                             </td>
                         </tr>
                     `;
@@ -262,7 +266,7 @@
             
             setTimeout(() => {
                 window.print();
-            }, 800); // เพิ่มเวลาให้ภาพโหลดนิดหน่อยเพราะ QR code ขนาดใหญ่ขึ้น
+            }, 800); 
         };
 
         window.drawRoute = (plat, plng, dlat, dlng) => {
